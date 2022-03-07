@@ -7,6 +7,7 @@ from nn_core.common import PROJECT_ROOT
 from nn_core.nn_types import Split
 
 
+# Example Dataset from the template
 class MyDataset(Dataset):
     def __init__(self, split: Split, **kwargs):
         super().__init__()
