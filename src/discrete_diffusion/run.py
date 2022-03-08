@@ -71,7 +71,7 @@ def run(cfg: DictConfig) -> str:
 
     # Instantiate model
     pylogger.info(f"Instantiating <{cfg.nn.module['_target_']}>")
-    model: pl.LightningModule = hydra.utils.instantiate(cfg.nn.module, _recursive_=False, metadata=metadata)
+    model: pl.LightningModule = hydra.utils.instantiate(cfg.nn.module, cfg=cfg.nn, _recursive_=False, metadata=metadata)
 
     # Instantiate the callbacks
     template_core: NNTemplateCore = NNTemplateCore(

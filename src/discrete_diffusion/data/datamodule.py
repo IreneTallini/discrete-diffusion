@@ -7,7 +7,6 @@ import hydra
 import omegaconf
 import pytorch_lightning as pl
 from omegaconf import DictConfig
-from torch import einsum, tensor
 from torch.utils.data import DataLoader, Dataset, random_split
 from torch.utils.data.dataloader import default_collate
 from torchvision import transforms
@@ -144,8 +143,6 @@ class MyDataModule(pl.LightningDataModule):
             [
                 transforms.ToTensor(),
                 transforms.Normalize((0.1307,), (0.3081,)),
-                transforms.Pad(50),
-                transforms.Lambda(lambda x: einsum("chw,c->chw", x, tensor([1, 0, 0]))),
             ]
         )
 

@@ -13,7 +13,8 @@ from nn_core.common import PROJECT_ROOT
 from nn_core.model_logging import NNLogger
 
 from discrete_diffusion.data.datamodule import MetaData
-from discrete_diffusion.modules.module import CNN, GaussianDiffusion, Unet
+from discrete_diffusion.modules.gaussian_diffusion import GaussianDiffusion
+from discrete_diffusion.modules.module import CNN, GraphDDPM
 
 pylogger = logging.getLogger(__name__)
 
@@ -31,8 +32,8 @@ class GaussianDiffusionPLModule(pl.LightningModule):
 
         self.metadata = metadata
 
-        denoise_fn = Unet(dim=64, dim_mults=(1, 2, 4, 8))
-        self.model = GaussianDiffusion(denoise_fn=denoise_fn)
+        denoise_fn = GraphDDPM(config=kwargs["cfg"])
+        self.model = GaussianDiffusion(denoise_fn=denoise_fn, image_size=28)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Method for the forward pass.

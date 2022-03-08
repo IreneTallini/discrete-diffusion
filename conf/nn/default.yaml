@@ -5,8 +5,8 @@ data:
     train:
       _target_: discrete_diffusion.data.dataset.MyDataset
 
-#    val:
-#      - _target_: discrete_diffusion.data.dataset.MyDataset
+    val:
+      - _target_: discrete_diffusion.data.dataset.MyDataset
 
     test:
       - _target_: discrete_diffusion.data.dataset.MyDataset
@@ -27,7 +27,7 @@ data:
   val_percentage: 0.1
 
 module:
-  _target_: discrete_diffusion.pl_modules.pl_module.MyLightningModule
+  _target_: discrete_diffusion.pl_modules.pl_module.GaussianDiffusionPLModule
 
   optimizer:
     #  Adam-oriented deep learning
@@ -45,3 +45,26 @@ module:
     eta_min: 0 # min value for the lr
     last_epoch: -1
     verbose: False
+
+# ROBA BRUTTA Added by Irene to make the code compatible with Song one
+model:
+  activation: "swish"
+  scale_by_sigma: False
+  ema_rate: 0.9999
+  normalization: 'GroupNorm'
+  nonlinearity: 'swish'
+  nf: 128
+  ch_mult: [1, 1, 1, 1]
+  num_res_blocks: 2
+  # model.attn_resolutions = (2048,)
+  resamp_with_conv: True
+  conditional: True
+  sigma_min: 0.01
+  sigma_max: 50
+  num_scales: 1000
+  beta_min: 0.1
+  beta_max: 20.
+  dropout: 0.1
+  embedding_type: 'fourier'
+  centered: False
+  num_channels: 1
