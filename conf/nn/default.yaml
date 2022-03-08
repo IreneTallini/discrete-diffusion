@@ -53,7 +53,7 @@ model:
   ema_rate: 0.9999
   normalization: 'GroupNorm'
   nonlinearity: 'swish'
-  nf: 128
+  nf: 32 #128 #
   ch_mult: [1, 1, 1, 1]
   num_res_blocks: 2
   # model.attn_resolutions = (2048,)

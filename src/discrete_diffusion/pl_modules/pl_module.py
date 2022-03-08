@@ -1,5 +1,7 @@
+
 import logging
 from typing import Any, Mapping, Optional, Sequence, Tuple, Union
+import plotly.graph_objects as go
 
 import hydra
 import omegaconf
@@ -7,6 +9,7 @@ import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
 import torchmetrics
+import wandb
 from torch.optim import Optimizer
 
 from nn_core.common import PROJECT_ROOT
@@ -15,6 +18,8 @@ from nn_core.model_logging import NNLogger
 from discrete_diffusion.data.datamodule import MetaData
 from discrete_diffusion.modules.gaussian_diffusion import GaussianDiffusion
 from discrete_diffusion.modules.module import CNN, GraphDDPM
+
+import matplotlib.pyplot as plt
 
 pylogger = logging.getLogger(__name__)
 
@@ -77,10 +82,39 @@ class GaussianDiffusionPLModule(pl.LightningModule):
             on_epoch=True,
             prog_bar=True,
         )
-
-        # TODO: Generate and send to wandb samples
-
         return step_out
+
+    # def on_validation_epoch_end(self) -> None:
+    #     # (B, C, H, W)
+    #     sampled_images = self.model.sample(batch_size=4)
+    #     sampled_images = sampled_images.permute(0, 2, 3, 1)
+    #
+    #     fig, axs = plt.subplots(2, 2)
+    #     axs = axs.flatten()
+    #
+    #     for img, ax in zip(sampled_images, axs):
+    #         ax.imshow(img.detach().cpu())
+    #
+    #     self.logger.experiment.log({"Sampled images": wandb.Image(fig)})
+
+    def on_validation_epoch_end(self) -> None:
+        # (B, C, H, W)
+        sampled_images = self.model.sample(batch_size=1)
+        sampled_images = sampled_images[0]
+        sampled_image = sampled_images.permute(1, 2, 0)
+        sampled_image = sampled_image.squeeze(-1)
+        sampled_image = (sampled_image - sampled_image.min()) / (sampled_image.max() - sampled_image.min()) * 255.0
+
+        layout = go.Layout(
+            autosize=False,
+            width=500,
+            height=500,
+        )
+
+        fig = go.Figure(data=go.Heatmap(z=sampled_image.detach().cpu(), zmin=0, zmax=255), layout=layout)
+
+
+        wandb.log(data={"Sampled image": fig})
 
     def test_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
         # example
@@ -90,8 +124,6 @@ class GaussianDiffusionPLModule(pl.LightningModule):
         self.log_dict(
             {"loss/test": step_out["loss"].cpu().detach()},
         )
-
-        # TODO: Generate and send to wandb samples
 
         return step_out
 
