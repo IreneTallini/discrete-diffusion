@@ -1,0 +1,4 @@
+ssh irenetallini@10.42.0.4
+ssh-copy-id irenetallini@10.42.0.4
+tmux
+rsync -vr -e "ssh" --exclude-from 'exclude_rsync.txt' . irenetallini@10.42.0.4:<path-to-exclude>

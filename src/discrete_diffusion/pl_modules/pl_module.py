@@ -1,10 +1,9 @@
-
 import logging
 from typing import Any, Mapping, Optional, Sequence, Tuple, Union
-import plotly.graph_objects as go
 
 import hydra
 import omegaconf
+import plotly.graph_objects as go
 import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
@@ -17,9 +16,8 @@ from nn_core.model_logging import NNLogger
 
 from discrete_diffusion.data.datamodule import MetaData
 from discrete_diffusion.modules.gaussian_diffusion import GaussianDiffusion
-from discrete_diffusion.modules.module import CNN, GraphDDPM
-
-import matplotlib.pyplot as plt
+from discrete_diffusion.modules.module import CNN  # , GraphDDPM
+from discrete_diffusion.modules.unet import Unet
 
 pylogger = logging.getLogger(__name__)
 
@@ -37,7 +35,8 @@ class GaussianDiffusionPLModule(pl.LightningModule):
 
         self.metadata = metadata
 
-        denoise_fn = GraphDDPM(config=kwargs["cfg"])
+        denoise_fn = Unet(dim=64, dim_mults=(1, 2), channels=1)
+        # denoise_fn = GraphDDPM(config=kwargs["cfg"])
         self.model = GaussianDiffusion(denoise_fn=denoise_fn, image_size=28)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -112,7 +111,6 @@ class GaussianDiffusionPLModule(pl.LightningModule):
         )
 
         fig = go.Figure(data=go.Heatmap(z=sampled_image.detach().cpu(), zmin=0, zmax=255), layout=layout)
-
 
         wandb.log(data={"Sampled image": fig})
 
