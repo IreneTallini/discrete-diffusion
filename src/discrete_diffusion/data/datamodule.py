@@ -6,6 +6,7 @@ from typing import List, Mapping, Optional, Sequence, Union
 import hydra
 import omegaconf
 import pytorch_lightning as pl
+import torch
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader, Dataset, random_split
 from torch.utils.data.dataloader import default_collate
@@ -142,7 +143,8 @@ class MyDataModule(pl.LightningDataModule):
         transform = transforms.Compose(
             [
                 transforms.ToTensor(),
-                transforms.Normalize((0.1307,), (0.3081,)),
+                # transforms.Normalize((0.1307,), (0.3081,)),
+                transforms.Lambda(lambda x: (x.round() != 0).type(torch.float)),
             ]
         )
 

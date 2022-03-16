@@ -85,8 +85,8 @@ class Unet(nn.Module):
             x = convnext2(x, t)
             x = attn(x)
             x = upsample(x)
-
-        return self.final_conv(x)
+        x = self.final_conv(x)
+        return x.permute(0, 2, 3, 1).unsqueeze(1)
 
 
 class SinusoidalPosEmb(nn.Module):

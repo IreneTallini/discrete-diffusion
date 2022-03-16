@@ -1,4 +1,3 @@
-from functools import partial
 from inspect import isfunction
 
 import numpy as np
@@ -58,39 +57,55 @@ class GaussianDiffusion(nn.Module):
         else:
             betas = cosine_beta_schedule(timesteps)
 
-        alphas = 1.0 - betas
-        alphas_cumprod = np.cumprod(alphas, axis=0)
-        alphas_cumprod_prev = np.append(1.0, alphas_cumprod[:-1])
+        # alphas = 1.0 - betas
+        # alphas_cumprod = np.cumprod(alphas, axis=0)
+        # alphas_cumprod_prev = np.append(1.0, alphas_cumprod[:-1])
 
         (timesteps,) = betas.shape
         self.num_timesteps = int(timesteps)
         self.loss_type = loss_type
 
-        to_torch = partial(torch.tensor, dtype=torch.float32)
+        # to_torch = partial(torch.tensor, dtype=torch.float32)
 
-        self.register_buffer("betas", to_torch(betas))
-        self.register_buffer("alphas_cumprod", to_torch(alphas_cumprod))
-        self.register_buffer("alphas_cumprod_prev", to_torch(alphas_cumprod_prev))
+        # Computing Q_t for each t
+        alpha = 3 / 28
+        self.Qt = torch.empty(self.num_timesteps, 2, 2)
+        for t in range(0, self.num_timesteps):
+            Q = (
+                1
+                / 2
+                * torch.tensor(
+                    [
+                        [(1 - 2 * alpha) ** t + 1, 1 - (1 - 2 * alpha) ** t],
+                        [1 - (1 - 2 * alpha) ** t, (1 - 2 * alpha) ** t + 1],
+                    ]
+                )
+            )
+            self.Qt[t] = Q
 
-        # calculations for diffusion q(x_t | x_{t-1}) and others
-        self.register_buffer("sqrt_alphas_cumprod", to_torch(np.sqrt(alphas_cumprod)))
-        self.register_buffer("sqrt_one_minus_alphas_cumprod", to_torch(np.sqrt(1.0 - alphas_cumprod)))
-        self.register_buffer("log_one_minus_alphas_cumprod", to_torch(np.log(1.0 - alphas_cumprod)))
-        self.register_buffer("sqrt_recip_alphas_cumprod", to_torch(np.sqrt(1.0 / alphas_cumprod)))
-        self.register_buffer("sqrt_recipm1_alphas_cumprod", to_torch(np.sqrt(1.0 / alphas_cumprod - 1)))
-
-        # calculations for posterior q(x_{t-1} | x_t, x_0)
-        posterior_variance = betas * (1.0 - alphas_cumprod_prev) / (1.0 - alphas_cumprod)
-        # above: equal to 1. / (1. / (1. - alpha_cumprod_tm1) + alpha_t / beta_t)
-        self.register_buffer("posterior_variance", to_torch(posterior_variance))
-        # below: log calculation clipped because the posterior variance is 0 at the beginning of the diffusion chain
-        self.register_buffer("posterior_log_variance_clipped", to_torch(np.log(np.maximum(posterior_variance, 1e-20))))
-        self.register_buffer(
-            "posterior_mean_coef1", to_torch(betas * np.sqrt(alphas_cumprod_prev) / (1.0 - alphas_cumprod))
-        )
-        self.register_buffer(
-            "posterior_mean_coef2", to_torch((1.0 - alphas_cumprod_prev) * np.sqrt(alphas) / (1.0 - alphas_cumprod))
-        )
+        # self.register_buffer("betas", to_torch(betas))
+        # self.register_buffer("alphas_cumprod", to_torch(alphas_cumprod))
+        # self.register_buffer("alphas_cumprod_prev", to_torch(alphas_cumprod_prev))
+        #
+        # # calculations for diffusion q(x_t | x_{t-1}) and others
+        # self.register_buffer("sqrt_alphas_cumprod", to_torch(np.sqrt(alphas_cumprod)))
+        # self.register_buffer("sqrt_one_minus_alphas_cumprod", to_torch(np.sqrt(1.0 - alphas_cumprod)))
+        # self.register_buffer("log_one_minus_alphas_cumprod", to_torch(np.log(1.0 - alphas_cumprod)))
+        # self.register_buffer("sqrt_recip_alphas_cumprod", to_torch(np.sqrt(1.0 / alphas_cumprod)))
+        # self.register_buffer("sqrt_recipm1_alphas_cumprod", to_torch(np.sqrt(1.0 / alphas_cumprod - 1)))
+        #
+        # # calculations for posterior q(x_{t-1} | x_t, x_0)
+        # posterior_variance = betas * (1.0 - alphas_cumprod_prev) / (1.0 - alphas_cumprod)
+        # # above: equal to 1. / (1. / (1. - alpha_cumprod_tm1) + alpha_t / beta_t)
+        # self.register_buffer("posterior_variance", to_torch(posterior_variance))
+        # # below: log calculation clipped because the posterior variance is 0 at the beginning of the diffusion chain
+        # self.register_buffer("posterior_log_variance_clipped", to_torch(np.log(np.maximum(posterior_variance, 1e-20))))
+        # self.register_buffer(
+        #     "posterior_mean_coef1", to_torch(betas * np.sqrt(alphas_cumprod_prev) / (1.0 - alphas_cumprod))
+        # )
+        # self.register_buffer(
+        #     "posterior_mean_coef2", to_torch((1.0 - alphas_cumprod_prev) * np.sqrt(alphas) / (1.0 - alphas_cumprod))
+        # )
 
     def q_mean_variance(self, x_start, t):
         mean = extract(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start
@@ -132,14 +147,22 @@ class GaussianDiffusion(nn.Module):
         return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise
 
     @torch.no_grad()
+    def p_sample_discrete(self, x, t, clip_denoised=True, repeat_noise=False):
+        logits = self.denoise_fn(x, t)
+        sample = torch.distributions.Categorical(logits=logits).sample()
+        sample = sample.type(torch.float)
+        return sample  # [b,c,h,w]
+
+    @torch.no_grad()
     def p_sample_loop(self, shape):
-        device = self.betas.device
+        # device = self.betas.device
 
         b = shape[0]
-        img = torch.randn(shape, device=device)
+        # img = torch.randn(shape, device=device)
+        img = torch.randint(0, 2, shape).type(torch.float)
 
         for i in tqdm(reversed(range(0, self.num_timesteps)), desc="sampling loop time step", total=self.num_timesteps):
-            img = self.p_sample(img, torch.full((b,), i, device=device, dtype=torch.long))
+            img = self.p_sample_discrete(img, torch.full((b,), i, dtype=torch.long))
         return img
 
     @torch.no_grad()
@@ -172,17 +195,44 @@ class GaussianDiffusion(nn.Module):
             + extract(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape) * noise
         )
 
+    def q_sample_discrete(self, x_start, t, x_t, noise=None):
+        # Expression for q(xt-1 | xt,x0) = (Q0_{:,xt} x Qt-1_{x0,:}) / Qt_{x0,xt}
+        Q_likelihood = self.Qt[0]  # [b, num_cat, num_cat]
+        Q_prior = self.Qt[t - 1]
+        Q_evidence = self.Qt[t]
+        x_t_one_hot = torch.nn.functional.one_hot(x_t.type(torch.int64)).type(torch.float)
+        x_start_one_hot = torch.nn.functional.one_hot(x_start.type(torch.int64)).type(torch.float)
+        likelihood = torch.einsum("bchwk, pk -> bchwp", x_t_one_hot, Q_likelihood)
+        prior = torch.einsum("bchwk, bkp -> bchwp", x_start_one_hot, Q_prior)
+        evidence = torch.einsum("bchwk, bkl, bchwl -> bchw", x_start_one_hot, Q_evidence, x_t_one_hot)
+        q_backward = (likelihood * prior) / evidence.unsqueeze(-1)  # [b,c,h,w,num_cat]
+        return q_backward
+
     def p_losses(self, x_start, t, noise=None):
         b, c, h, w = x_start.shape
-        noise = default(noise, lambda: torch.randn_like(x_start))
+        # noise = default(noise, lambda: torch.randn_like(x_start))
 
-        x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
-        x_recon = self.denoise_fn(x_noisy, t)
+        # For each categorical value in x_start, the corresponding
+        # row in Q is the vector of q(xt | x0)
+        Q_batch = self.Qt[t]  # [b, num_cat, num_cat]
+        x_start_one_hot = torch.nn.functional.one_hot(x_start.type(torch.int64)).type(torch.float)
+        q = torch.einsum("bchwk, bkp -> bchwp", x_start_one_hot, Q_batch)
+
+        x_noisy = torch.distributions.Categorical(q).sample().type(torch.float)  # [b,c,h,w]
+
+        q_noisy = self.q_sample_discrete(x_start=x_start, t=t, x_t=x_noisy)  # [b,c,h,w,num_cat]
+        q_recon = self.denoise_fn(x_noisy, t)
+        # q_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
+        # q_recon = self.denoise_fn(x_noisy, t)
 
         if self.loss_type == "l1":
-            loss = (noise - x_recon).abs().mean()
+            loss = (noise - q_recon).abs().mean()
         elif self.loss_type == "l2":
-            loss = F.mse_loss(noise, x_recon)
+            loss = F.mse_loss(noise, q_recon)
+        elif self.loss_type == "kl_div":
+            loss = F.cross_entropy(q_recon, q_noisy, reduction="none")  # kl_div(q_noisy, q_recon, reduction="none")
+            loss = loss.sum((-1, -2), dtype=float)
+            loss = loss.mean()
         else:
             raise NotImplementedError()
 
