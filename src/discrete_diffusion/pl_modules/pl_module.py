@@ -2,6 +2,7 @@ import logging
 from typing import Any, Mapping, Optional, Sequence, Tuple, Union
 
 import hydra
+import matplotlib.pyplot as plt
 import omegaconf
 import plotly.graph_objects as go
 import pytorch_lightning as pl
@@ -83,20 +84,22 @@ class GaussianDiffusionPLModule(pl.LightningModule):
         )
         return step_out
 
-    # def on_validation_epoch_end(self) -> None:
-    #     # (B, C, H, W)
-    #     sampled_images = self.model.sample(batch_size=4)
-    #     sampled_images = sampled_images.permute(0, 2, 3, 1)
-    #
-    #     fig, axs = plt.subplots(2, 2)
-    #     axs = axs.flatten()
-    #
-    #     for img, ax in zip(sampled_images, axs):
-    #         ax.imshow(img.detach().cpu())
-    #
-    #     self.logger.experiment.log({"Sampled images": wandb.Image(fig)})
-
     def on_validation_epoch_end(self) -> None:
+        # (B, C, H, W)
+        batch_size_h = 2
+        batch_size_w = 1
+        sampled_images = self.model.sample(batch_size=batch_size_h * batch_size_w)
+        sampled_images = sampled_images.permute(0, 2, 3, 1)
+
+        fig, axs = plt.subplots(batch_size_h, batch_size_w)
+        axs = axs.flatten()
+
+        for img, ax in zip(sampled_images, axs):
+            ax.imshow(img.detach().cpu())
+
+        self.logger.experiment.log({"Sampled images": wandb.Image(fig)})
+
+    def on_validation_epoch_end_donato(self) -> None:
         # (B, C, H, W)
         sampled_images = self.model.sample(batch_size=1)
         sampled_images = sampled_images[0]

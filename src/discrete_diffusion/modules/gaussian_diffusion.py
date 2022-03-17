@@ -159,10 +159,10 @@ class GaussianDiffusion(nn.Module):
 
         b = shape[0]
         # img = torch.randn(shape, device=device)
-        img = torch.randint(0, 2, shape).type(torch.float)
+        img = torch.randint(0, 2, shape, dtype=torch.float)
 
         for i in tqdm(reversed(range(0, self.num_timesteps)), desc="sampling loop time step", total=self.num_timesteps):
-            img = self.p_sample_discrete(img, torch.full((b,), i, dtype=torch.long))
+            img = self.p_sample_discrete(img, torch.full((b,), i, dtype=torch.float))
         return img
 
     @torch.no_grad()
@@ -195,7 +195,7 @@ class GaussianDiffusion(nn.Module):
             + extract(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape) * noise
         )
 
-    def q_sample_discrete(self, x_start, t, x_t, noise=None):
+    def get_q_discrete(self, x_start, t, x_t, noise=None):
         # Expression for q(xt-1 | xt,x0) = (Q0_{:,xt} x Qt-1_{x0,:}) / Qt_{x0,xt}
         Q_likelihood = self.Qt[0]  # [b, num_cat, num_cat]
         Q_prior = self.Qt[t - 1]
@@ -220,7 +220,7 @@ class GaussianDiffusion(nn.Module):
 
         x_noisy = torch.distributions.Categorical(q).sample().type(torch.float)  # [b,c,h,w]
 
-        q_noisy = self.q_sample_discrete(x_start=x_start, t=t, x_t=x_noisy)  # [b,c,h,w,num_cat]
+        q_noisy = self.get_q_discrete(x_start=x_start, t=t, x_t=x_noisy)  # [b,c,h,w,num_cat]
         q_recon = self.denoise_fn(x_noisy, t)
         # q_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
         # q_recon = self.denoise_fn(x_noisy, t)
