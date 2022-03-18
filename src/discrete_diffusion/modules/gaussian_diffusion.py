@@ -3,6 +3,7 @@ from inspect import isfunction
 import numpy as np
 import torch
 import torch.nn.functional as F
+import wandb
 from torch import nn
 from tqdm import tqdm
 
@@ -224,6 +225,8 @@ class GaussianDiffusion(nn.Module):
 
         q_noisy = self.get_q_discrete(x_start=x_start, t=t, x_t=x_noisy)  # [b,c,h,w,num_cat]
         q_recon = self.denoise_fn(x_noisy, t)
+        wandb.log({"q noisy": q_noisy.abs().sum()})
+        wandb.log({"q recon": q_recon.abs().sum()})
         # q_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
         # q_recon = self.denoise_fn(x_noisy, t)
 

@@ -159,7 +159,9 @@ class MyDataModule(pl.LightningDataModule):
             )
             train_length = int(len(mnist_train) * (1 - self.val_percentage))
             val_length = len(mnist_train) - train_length
-            self.train_dataset, val_dataset = random_split(mnist_train, [train_length, val_length])
+            self.train_dataset, val_dataset = random_split(
+                mnist_train, [train_length, val_length], generator=torch.Generator().manual_seed(1)
+            )
 
             self.val_datasets = [val_dataset]
 
