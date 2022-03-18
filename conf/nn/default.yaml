@@ -19,8 +19,8 @@ data:
     test: 4
 
   batch_size:
-    train: 32
-    val: 16
+    train: 128
+    val: 32
     test: 16
 
   # example

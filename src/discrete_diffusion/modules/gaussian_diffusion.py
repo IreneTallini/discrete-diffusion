@@ -68,8 +68,8 @@ class GaussianDiffusion(nn.Module):
         # to_torch = partial(torch.tensor, dtype=torch.float32)
 
         # Computing Q_t for each t
-        alpha = 3 / 28
-        self.Qt = torch.empty(self.num_timesteps, 2, 2)
+        alpha = 3 * 2 / (28 * 27)
+        Qt = torch.empty(self.num_timesteps, 2, 2)
         for t in range(0, self.num_timesteps):
             Q = (
                 1
@@ -78,10 +78,11 @@ class GaussianDiffusion(nn.Module):
                     [
                         [(1 - 2 * alpha) ** t + 1, 1 - (1 - 2 * alpha) ** t],
                         [1 - (1 - 2 * alpha) ** t, (1 - 2 * alpha) ** t + 1],
-                    ]
+                    ],
                 )
             )
-            self.Qt[t] = Q
+            Qt[t] = Q
+        self.register_buffer("Qt", Qt)
 
         # self.register_buffer("betas", to_torch(betas))
         # self.register_buffer("alphas_cumprod", to_torch(alphas_cumprod))
@@ -159,10 +160,11 @@ class GaussianDiffusion(nn.Module):
 
         b = shape[0]
         # img = torch.randn(shape, device=device)
-        img = torch.randint(0, 2, shape, dtype=torch.float)
+        img = torch.randint(0, 2, shape, dtype=torch.float).type_as(self.Qt[0])
 
         for i in tqdm(reversed(range(0, self.num_timesteps)), desc="sampling loop time step", total=self.num_timesteps):
-            img = self.p_sample_discrete(img, torch.full((b,), i, dtype=torch.float))
+            times = torch.full((b,), i).type_as(self.Qt[0])
+            img = self.p_sample_discrete(img, times)
         return img
 
     @torch.no_grad()
@@ -230,9 +232,11 @@ class GaussianDiffusion(nn.Module):
         elif self.loss_type == "l2":
             loss = F.mse_loss(noise, q_recon)
         elif self.loss_type == "kl_div":
-            loss = F.cross_entropy(q_recon, q_noisy, reduction="none")  # kl_div(q_noisy, q_recon, reduction="none")
-            loss = loss.sum((-1, -2), dtype=float)
-            loss = loss.mean()
+            loss = F.cross_entropy(
+                q_recon.permute(0, 4, 1, 2, 3), q_noisy.permute(0, 4, 1, 2, 3)
+            )  # kl_div(q_noisy, q_recon, reduction="none")
+            # loss = loss.sum((-1, -2, -3), dtype=float)
+            # loss = loss.mean()
         else:
             raise NotImplementedError()
 
