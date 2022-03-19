@@ -1,5 +1,6 @@
 from inspect import isfunction
 
+# import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -69,20 +70,18 @@ class GaussianDiffusion(nn.Module):
         # to_torch = partial(torch.tensor, dtype=torch.float32)
 
         # Computing Q_t for each t
-        alpha = 3 * 2 / (28 * 27)
+        alpha = 5 * 2 / (28 * 27)
         Qt = torch.empty(self.num_timesteps, 2, 2)
-        for t in range(0, self.num_timesteps):
-            Q = (
-                1
-                / 2
-                * torch.tensor(
-                    [
-                        [(1 - 2 * alpha) ** t + 1, 1 - (1 - 2 * alpha) ** t],
-                        [1 - (1 - 2 * alpha) ** t, (1 - 2 * alpha) ** t + 1],
-                    ],
-                )
+        for t in range(1, self.num_timesteps + 1):
+            flip_prob = 0.5 * (1 - (1 - 2 * alpha) ** t)
+            not_flip_prob = 1 - flip_prob
+            Q = torch.tensor(
+                [
+                    [not_flip_prob, flip_prob],
+                    [flip_prob, not_flip_prob],
+                ],
             )
-            Qt[t] = Q
+            Qt[t - 1] = Q
         self.register_buffer("Qt", Qt)
 
         # self.register_buffer("betas", to_torch(betas))

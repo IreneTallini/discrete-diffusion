@@ -62,6 +62,9 @@ class GaussianDiffusionPLModule(pl.LightningModule):
         x, _ = batch
         step_out = self.step(x)
 
+        # plt.imshow(x[0].detach().cpu().permute(1, 2, 0))
+        # plt.show()
+
         self.log_dict(
             {"loss/train": step_out["loss"].cpu().detach()},
             on_step=True,
