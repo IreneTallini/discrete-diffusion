@@ -99,6 +99,7 @@ class GaussianDiffusionPLModule(pl.LightningModule):
 
         for img, ax in zip(sampled_images, axs):
             ax.imshow(img.detach().cpu())
+        plt.show()
 
         self.logger.experiment.log({"Sampled images": wandb.Image(fig)})
 
