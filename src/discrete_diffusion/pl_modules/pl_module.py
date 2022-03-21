@@ -36,9 +36,9 @@ class GaussianDiffusionPLModule(pl.LightningModule):
 
         self.metadata = metadata
 
-        denoise_fn = Unet(dim=64, dim_mults=(1, 2), channels=1, out_dim=2)
+        denoise_fn = Unet(dim=64, dim_mults=(1, 2), channels=1, out_dim=3)
         # denoise_fn = GraphDDPM(config=kwargs["cfg"])
-        self.model = GaussianDiffusion(denoise_fn=denoise_fn, image_size=28, loss_type="kl_div")
+        self.model = GaussianDiffusion(denoise_fn=denoise_fn, image_size=28, loss_type="kl_div", timesteps=2000)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Method for the forward pass.

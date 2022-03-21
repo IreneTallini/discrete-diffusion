@@ -144,6 +144,7 @@ class MyDataModule(pl.LightningDataModule):
             [
                 transforms.ToTensor(),
                 # transforms.Normalize((0.1307,), (0.3081,)),
+                # make image binary
                 transforms.Lambda(lambda x: (x.round() != 0).type(torch.float)),
             ]
         )

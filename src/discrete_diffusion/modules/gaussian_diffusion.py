@@ -4,7 +4,6 @@ from inspect import isfunction
 import numpy as np
 import torch
 import torch.nn.functional as F
-import wandb
 from torch import nn
 from tqdm import tqdm
 
@@ -70,15 +69,28 @@ class GaussianDiffusion(nn.Module):
         # to_torch = partial(torch.tensor, dtype=torch.float32)
 
         # Computing Q_t for each t
-        alpha = 5 * 2 / (28 * 27)
-        Qt = torch.empty(self.num_timesteps, 2, 2)
+        alpha = 1 * 2 / (28 * 27)
+        # Qt = torch.empty(self.num_timesteps, 2, 2)
+        # for t in range(1, self.num_timesteps + 1):
+        #     flip_prob = 0.5 * (1 - (1 - 2 * alpha) ** t)
+        #     not_flip_prob = 1 - flip_prob
+        #     Q = torch.tensor(
+        #         [
+        #             [not_flip_prob, flip_prob],
+        #             [flip_prob, not_flip_prob],
+        #         ],
+        #     )
+        #     Qt[t - 1] = Q
+
+        Qt = torch.empty(self.num_timesteps, 3, 3)
         for t in range(1, self.num_timesteps + 1):
-            flip_prob = 0.5 * (1 - (1 - 2 * alpha) ** t)
+            flip_prob = 1 - (1 - alpha) ** t
             not_flip_prob = 1 - flip_prob
             Q = torch.tensor(
                 [
-                    [not_flip_prob, flip_prob],
-                    [flip_prob, not_flip_prob],
+                    [not_flip_prob, 0, flip_prob],
+                    [0, not_flip_prob, flip_prob],
+                    [0, 0, 1],
                 ],
             )
             Qt[t - 1] = Q
@@ -149,6 +161,7 @@ class GaussianDiffusion(nn.Module):
 
     @torch.no_grad()
     def p_sample_discrete(self, x, t, clip_denoised=True, repeat_noise=False):
+        # logits = self.get_q_discrete(self.x0, t, self.x_noisy_tmp)
         logits = self.denoise_fn(x, t)
         sample = torch.distributions.Categorical(logits=logits).sample()
         sample = sample.type(torch.float)
@@ -202,8 +215,8 @@ class GaussianDiffusion(nn.Module):
         Q_likelihood = self.Qt[0]  # [b, num_cat, num_cat]
         Q_prior = self.Qt[t - 1]
         Q_evidence = self.Qt[t]
-        x_t_one_hot = torch.nn.functional.one_hot(x_t.type(torch.int64)).type(torch.float)
-        x_start_one_hot = torch.nn.functional.one_hot(x_start.type(torch.int64)).type(torch.float)
+        x_t_one_hot = torch.nn.functional.one_hot(x_t.type(torch.int64), num_classes=3).type(torch.float)
+        x_start_one_hot = torch.nn.functional.one_hot(x_start.type(torch.int64), num_classes=3).type(torch.float)
         likelihood = torch.einsum("bchwk, pk -> bchwp", x_t_one_hot, Q_likelihood)
         prior = torch.einsum("bchwk, bkp -> bchwp", x_start_one_hot, Q_prior)
         evidence = torch.einsum("bchwk, bkl, bchwl -> bchw", x_start_one_hot, Q_evidence, x_t_one_hot)
@@ -217,15 +230,15 @@ class GaussianDiffusion(nn.Module):
         # For each categorical value in x_start, the corresponding
         # row in Q is the vector of q(xt | x0)
         Q_batch = self.Qt[t]  # [b, num_cat, num_cat]
-        x_start_one_hot = torch.nn.functional.one_hot(x_start.type(torch.int64)).type(torch.float)
+        x_start_one_hot = torch.nn.functional.one_hot(x_start.type(torch.int64), num_classes=3).type(torch.float)
         q = torch.einsum("bchwk, bkp -> bchwp", x_start_one_hot, Q_batch)
 
         x_noisy = torch.distributions.Categorical(q).sample().type(torch.float)  # [b,c,h,w]
 
         q_noisy = self.get_q_discrete(x_start=x_start, t=t, x_t=x_noisy)  # [b,c,h,w,num_cat]
         q_recon = self.denoise_fn(x_noisy, t)
-        wandb.log({"q noisy": q_noisy.abs().sum()})
-        wandb.log({"q recon": q_recon.abs().sum()})
+        # wandb.log({"q noisy": q_noisy.abs().sum()})
+        # wandb.log({"q recon": q_recon.abs().sum()})
         # q_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
         # q_recon = self.denoise_fn(x_noisy, t)
 
