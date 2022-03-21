@@ -174,7 +174,7 @@ class GaussianDiffusion(nn.Module):
         b = shape[0]
         # img = torch.randn(shape, device=device)
         # img = torch.randint(0, 2, shape, dtype=torch.float).type_as(self.Qt[0])
-        img = torch.full(shape, 2)
+        img = torch.full(shape, 2, dtype=torch.float).type_as(self.Qt[0])
 
         for i in tqdm(reversed(range(0, self.num_timesteps)), desc="sampling loop time step", total=self.num_timesteps):
             times = torch.full((b,), i).type_as(self.Qt[0])
