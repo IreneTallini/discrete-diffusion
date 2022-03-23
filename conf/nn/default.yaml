@@ -1,15 +1,15 @@
 data:
-  _target_: discrete_diffusion.data.datamodule.MyDataModule
+  _target_: discrete_diffusion.data.geometric_datamodule.GeometricDataModule
 
   datasets:
     train:
-      _target_: discrete_diffusion.data.dataset.MyDataset
+      _target_: discrete_diffusion.data.graph_dataset.GeneratedGraphDataset
 
     val:
-      - _target_: discrete_diffusion.data.dataset.MyDataset
+      - _target_: discrete_diffusion.data.graph_dataset.GeneratedGraphDataset
 
     test:
-      - _target_: discrete_diffusion.data.dataset.MyDataset
+      - _target_: discrete_diffusion.data.graph_dataset.GeneratedGraphDataset
 
   gpus: ${train.trainer.gpus}
 
@@ -27,7 +27,19 @@ data:
   val_percentage: 0.1
 
 module:
-  _target_: discrete_diffusion.pl_modules.pl_module.GaussianDiffusionPLModule
+  _target_: discrete_diffusion.pl_modules.pl_module.DiffusionPLModule
+
+  model:
+    _target_: discrete_diffusion.modules.diffusion.Diffusion
+    denoise_fn:
+      _target_: discrete_diffusion.modules.unet.Unet
+      dim: 64
+      dim_mults: [1, 4]
+      channels: 1
+      out_dim: 3
+    image_size: 28
+    loss_type: "kl_div"
+    timesteps: 2000
 
   optimizer:
     #  Adam-oriented deep learning

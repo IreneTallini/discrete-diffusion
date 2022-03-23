@@ -46,7 +46,7 @@ def cosine_beta_schedule(timesteps, s=0.008):
     return np.clip(betas, a_min=0, a_max=0.999)
 
 
-class GaussianDiffusion(nn.Module):
+class Diffusion(nn.Module):
     def __init__(self, denoise_fn, *, image_size, channels=1, timesteps=1000, loss_type="l1", betas=None):
         super().__init__()
         self.channels = channels

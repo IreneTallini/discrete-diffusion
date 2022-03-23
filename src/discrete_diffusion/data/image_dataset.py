@@ -1,6 +1,8 @@
 import hydra
 import omegaconf
+from torch import float as torch_float
 from torch.utils.data import Dataset
+from torchvision import transforms
 from torchvision.datasets import FashionMNIST
 
 from nn_core.common import PROJECT_ROOT
@@ -8,17 +10,23 @@ from nn_core.nn_types import Split
 
 
 # Example Dataset from the template
-class MyDataset(Dataset):
+class ImageDataset(Dataset):
     def __init__(self, split: Split, **kwargs):
         super().__init__()
         self.split: Split = split
 
         # example
+        transform = transforms.Compose(
+            [
+                kwargs["transform"],
+                transforms.Lambda(lambda x: (x.round() != 0).type(torch_float)),
+            ]
+        )
         self.mnist = FashionMNIST(
             kwargs["path"],
             train=split == "train",
             download=True,
-            transform=kwargs["transform"],
+            transform=transform,
         )
 
     @property

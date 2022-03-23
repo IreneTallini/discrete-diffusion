@@ -1,19 +1,19 @@
 import logging
-from functools import cached_property, partial
+from functools import cached_property  # , partial
 from pathlib import Path
 from typing import List, Mapping, Optional, Sequence, Union
 
 import hydra
 import omegaconf
 import pytorch_lightning as pl
-import torch
 from omegaconf import DictConfig
-from torch.utils.data import DataLoader, Dataset, random_split
-from torch.utils.data.dataloader import default_collate
-from torchvision import transforms
+from torch_geometric.data import Dataset
+from torch_geometric.loader import DataLoader
 
 from nn_core.common import PROJECT_ROOT
-from nn_core.nn_types import Split
+
+# from torchvision import transforms
+
 
 pylogger = logging.getLogger(__name__)
 
@@ -82,21 +82,7 @@ class MetaData:
         )
 
 
-def collate_fn(samples: List, split: Split, metadata: MetaData):
-    """Custom collate function for dataloaders with access to split and metadata.
-
-    Args:
-        samples: A list of samples coming from the Dataset to be merged into a batch
-        split: The data split (e.g. train/val/test)
-        metadata: The MetaData instance coming from the DataModule or the restored checkpoint
-
-    Returns:
-        A batch generated from the given samples
-    """
-    return default_collate(samples)
-
-
-class MyDataModule(pl.LightningDataModule):
+class GeometricDataModule(pl.LightningDataModule):
     def __init__(
         self,
         datasets: DictConfig,
@@ -140,29 +126,26 @@ class MyDataModule(pl.LightningDataModule):
         pass
 
     def setup(self, stage: Optional[str] = None):
-        transform = transforms.Compose(
-            [
-                transforms.ToTensor(),
-                # transforms.Normalize((0.1307,), (0.3081,)),
-            ]
-        )
+        # transform = transforms.Compose(
+        #     [
+        #         transforms.ToTensor(),
+        #         transforms.Normalize((0.1307,), (0.3081,)),
+        # ]
+        # )
 
         # Here you should instantiate your datasets, you may also split the train into train and validation if needed.
         if (stage is None or stage == "fit") and (self.train_dataset is None and self.val_datasets is None):
             # example
-            mnist_train = hydra.utils.instantiate(
+            train = hydra.utils.instantiate(
                 self.datasets.train,
                 split="train",
-                transform=transform,
                 path=PROJECT_ROOT / "data",
-            )
-            train_length = int(len(mnist_train) * (1 - self.val_percentage))
-            val_length = len(mnist_train) - train_length
-            self.train_dataset, val_dataset = random_split(
-                mnist_train, [train_length, val_length], generator=torch.Generator().manual_seed(1)
+                # transform=transform,
             )
 
-            self.val_datasets = [val_dataset]
+            train_length = int(len(train) * (1 - self.val_percentage))
+            self.train_dataset = train[:train_length]
+            self.val_datasets = [train[train_length + 1 :]]
 
         if stage is None or stage == "test":
             self.test_datasets = [
@@ -170,7 +153,7 @@ class MyDataModule(pl.LightningDataModule):
                     dataset_cfg,
                     split="test",
                     path=PROJECT_ROOT / "data",
-                    transform=transform,
+                    # transform=transform,
                 )
                 for dataset_cfg in self.datasets.test
             ]
@@ -182,7 +165,6 @@ class MyDataModule(pl.LightningDataModule):
             batch_size=self.batch_size.train,
             num_workers=self.num_workers.train,
             pin_memory=self.pin_memory,
-            collate_fn=partial(collate_fn, split="train", metadata=self.metadata),
         )
 
     def val_dataloader(self) -> Sequence[DataLoader]:
@@ -193,7 +175,6 @@ class MyDataModule(pl.LightningDataModule):
                 batch_size=self.batch_size.val,
                 num_workers=self.num_workers.val,
                 pin_memory=self.pin_memory,
-                collate_fn=partial(collate_fn, split="val", metadata=self.metadata),
             )
             for dataset in self.val_datasets
         ]
@@ -206,7 +187,6 @@ class MyDataModule(pl.LightningDataModule):
                 batch_size=self.batch_size.test,
                 num_workers=self.num_workers.test,
                 pin_memory=self.pin_memory,
-                collate_fn=partial(collate_fn, split="test", metadata=self.metadata),
             )
             for dataset in self.test_datasets
         ]
