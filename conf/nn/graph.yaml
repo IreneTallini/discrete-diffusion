@@ -1,15 +1,19 @@
+defaults:
+  - graph_generator: grid
+  - _self_
+
 data:
-  _target_: discrete_diffusion.data.geometric_datamodule.GeometricDataModule
+  _target_: discrete_diffusion.data.datamodule.GraphDataModule
 
   datasets:
     train:
       _target_: discrete_diffusion.data.graph_dataset.GeneratedGraphDataset
 
     val:
-      - _target_: discrete_diffusion.data.graph_dataset.GeneratedGraphDataset
+      _target_: discrete_diffusion.data.graph_dataset.GeneratedGraphDataset
 
     test:
-      - _target_: discrete_diffusion.data.graph_dataset.GeneratedGraphDataset
+      _target_: discrete_diffusion.data.graph_dataset.GeneratedGraphDataset
 
   gpus: ${train.trainer.gpus}
 
@@ -23,8 +27,8 @@ data:
     val: 32
     test: 16
 
-  # example
   val_percentage: 0.1
+
 
 
 module:

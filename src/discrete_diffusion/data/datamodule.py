@@ -4,16 +4,23 @@ from pathlib import Path
 from typing import List, Mapping, Optional, Sequence, Union
 
 import hydra
+import networkx as nx
 import omegaconf
 import pytorch_lightning as pl
 import torch
+from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader, Dataset, random_split
 from torch.utils.data.dataloader import default_collate
+from torch_geometric.data import Batch, Data
+from torch_geometric.utils import from_networkx
 from torchvision import transforms
 
 from nn_core.common import PROJECT_ROOT
 from nn_core.nn_types import Split
+
+from discrete_diffusion.data.graph_dataset import GraphGenerator
+from discrete_diffusion.data.io_utils import random_split_sequence
 
 pylogger = logging.getLogger(__name__)
 
@@ -41,6 +48,7 @@ class MetaData:
         Args:
             class_vocab: association between class names and their indices
         """
+
         # example
         self.class_vocab: Mapping[str, int] = class_vocab
 
@@ -103,14 +111,12 @@ class MyDataModule(pl.LightningDataModule):
         num_workers: DictConfig,
         batch_size: DictConfig,
         gpus: Optional[Union[List[int], str, int]],
-        # example
         val_percentage: float,
     ):
         super().__init__()
         self.datasets = datasets
         self.num_workers = num_workers
         self.batch_size = batch_size
-        # https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#gpus
         self.pin_memory: bool = gpus is not None and str(gpus) != "0"
 
         self.train_dataset: Optional[Dataset] = None
@@ -182,8 +188,11 @@ class MyDataModule(pl.LightningDataModule):
             batch_size=self.batch_size.train,
             num_workers=self.num_workers.train,
             pin_memory=self.pin_memory,
-            collate_fn=partial(collate_fn, split="train", metadata=self.metadata),
+            collate_fn=self.get_collate_fn("train"),
         )
+
+    def get_collate_fn(self, split):
+        return partial(collate_fn, split=split, metadata=self.metadata)
 
     def val_dataloader(self) -> Sequence[DataLoader]:
         return [
@@ -193,7 +202,7 @@ class MyDataModule(pl.LightningDataModule):
                 batch_size=self.batch_size.val,
                 num_workers=self.num_workers.val,
                 pin_memory=self.pin_memory,
-                collate_fn=partial(collate_fn, split="val", metadata=self.metadata),
+                collate_fn=self.get_collate_fn("val"),
             )
             for dataset in self.val_datasets
         ]
@@ -206,13 +215,68 @@ class MyDataModule(pl.LightningDataModule):
                 batch_size=self.batch_size.test,
                 num_workers=self.num_workers.test,
                 pin_memory=self.pin_memory,
-                collate_fn=partial(collate_fn, split="test", metadata=self.metadata),
+                collate_fn=self.get_collate_fn("test"),
             )
             for dataset in self.test_datasets
         ]
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(" f"{self.datasets=}, " f"{self.num_workers=}, " f"{self.batch_size=})"
+
+
+class GraphDataModule(MyDataModule):
+    def __init__(
+        self,
+        graph_generator: DictConfig,
+        datasets: DictConfig,
+        num_workers: DictConfig,
+        batch_size: DictConfig,
+        gpus: Optional[Union[List[int], str, int]],
+        val_percentage: float,
+    ):
+        super().__init__(datasets, num_workers, batch_size, gpus, val_percentage)
+
+        self.graph_generator: GraphGenerator = instantiate(config=graph_generator, _recursive_=False)
+
+    def setup(self, stage: Optional[str] = None):
+
+        if (stage is None or stage == "fit") and (self.train_dataset is None and self.val_datasets is None):
+
+            generated_nx_graphs: List[nx.Graph] = self.graph_generator.generate_data()
+
+            generated_graphs: List[Data] = [from_networkx(nx_graph) for nx_graph in generated_nx_graphs]
+
+            graphs = {}
+            graphs["train"], graphs["val"], graphs["test"] = self.split_train_val_test(generated_graphs)
+
+            stages = {"train", "val", "test"}
+            datasets = {}
+
+            for stage in stages:
+                config = self.datasets[stage]
+                datasets[stage] = hydra.utils.instantiate(
+                    config=config,
+                    samples=graphs[stage],
+                )
+
+            self.train_dataset = datasets["train"]
+            self.val_datasets = [datasets["val"]]
+            self.test_datasets = [datasets["test"]]
+
+    def split_train_val_test(self, graphs):
+        split_ratio = {"train": 0.8, "val": 0.1, "test": 0.1}
+
+        train_val, test = random_split_sequence(graphs, split_ratio["train"] + split_ratio["val"])
+
+        train, val = random_split_sequence(
+            train_val, split_ratio["train"] / (split_ratio["train"] + split_ratio["val"])
+        )
+
+        return train, val, test
+
+    def get_collate_fn(self, split):
+
+        return Batch.from_data_list
 
 
 @hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="default")

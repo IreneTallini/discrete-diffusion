@@ -9,11 +9,9 @@ import pytorch_lightning as pl
 from omegaconf import DictConfig
 from torch_geometric.data import Dataset
 from torch_geometric.loader import DataLoader
+from torchvision import transforms
 
 from nn_core.common import PROJECT_ROOT
-
-# from torchvision import transforms
-
 
 pylogger = logging.getLogger(__name__)
 
@@ -91,6 +89,7 @@ class GeometricDataModule(pl.LightningDataModule):
         gpus: Optional[Union[List[int], str, int]],
         # example
         val_percentage: float,
+        num_gen_samples: int,
     ):
         super().__init__()
         self.datasets = datasets
@@ -105,6 +104,7 @@ class GeometricDataModule(pl.LightningDataModule):
 
         # example
         self.val_percentage: float = val_percentage
+        self.num_gen_samples: int = num_gen_samples
 
     @cached_property
     def metadata(self) -> MetaData:
@@ -126,24 +126,26 @@ class GeometricDataModule(pl.LightningDataModule):
         pass
 
     def setup(self, stage: Optional[str] = None):
-        # transform = transforms.Compose(
-        #     [
-        #         transforms.ToTensor(),
-        #         transforms.Normalize((0.1307,), (0.3081,)),
-        # ]
-        # )
+        transform = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize((0.1307,), (0.3081,)),
+            ]
+        )
 
         # Here you should instantiate your datasets, you may also split the train into train and validation if needed.
         if (stage is None or stage == "fit") and (self.train_dataset is None and self.val_datasets is None):
             # example
             train = hydra.utils.instantiate(
                 self.datasets.train,
-                split="train",
-                path=PROJECT_ROOT / "data",
-                # transform=transform,
+                path=PROJECT_ROOT / "data" / "train",
+                transform=transform,
+                config=self.datasets.gen_params,
+                size_dataset=self.num_gen_samples,
             )
 
-            train_length = int(len(train) * (1 - self.val_percentage))
+            val_length = int(self.num_gen_samples * self.val_percentage)
+            train_length = self.num_gen_samples - val_length
             self.train_dataset = train[:train_length]
             self.val_datasets = [train[train_length + 1 :]]
 
@@ -151,9 +153,10 @@ class GeometricDataModule(pl.LightningDataModule):
             self.test_datasets = [
                 hydra.utils.instantiate(
                     dataset_cfg,
-                    split="test",
-                    path=PROJECT_ROOT / "data",
-                    # transform=transform,
+                    path=PROJECT_ROOT / "data" / "test",
+                    transform=transform,
+                    config=self.datasets.gen_params,
+                    size_dataset=self.num_gen_samples // 10,
                 )
                 for dataset_cfg in self.datasets.test
             ]
