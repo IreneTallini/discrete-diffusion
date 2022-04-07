@@ -35,16 +35,16 @@ module:
   _target_: discrete_diffusion.pl_modules.pl_module.DiffusionPLModule
 
   model:
-    _target_: discrete_diffusion.modules.diffusion.Diffusion
-    denoise_fn:
-      _target_: discrete_diffusion.modules.unet.Unet
-      dim: 64
-      dim_mults: [1, 4]
-      channels: 1
-      out_dim: 3
-    image_size: 28
-    loss_type: "kl_div"
-    timesteps: 2000
+    _target_: discrete_diffusion.modules.node_embedder.NodeEmbedder
+    feature_dim: ???
+    num_mlp_layers: 2
+    embedding_dim: 64
+    hidden_dim: 64
+    num_convs: 2
+    dropout_rate: 0.
+    do_preprocess: false
+    use_batch_norm: true
+    jump_mode: cat
 
   optimizer:
     #  Adam-oriented deep learning
