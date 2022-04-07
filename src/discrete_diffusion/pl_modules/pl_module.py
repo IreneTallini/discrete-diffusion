@@ -38,7 +38,7 @@ class DiffusionPLModule(pl.LightningModule):
 
         self.metadata = metadata
 
-        self.model = hydra.utils.instantiate(self.hparams.model, _recursive_=True)
+        self.model = hydra.utils.instantiate(self.hparams.model, cfg=self.hparams.model, feature_dim=metadata.feature_dim, _recursive_=False)
 
         # denoise_fn = Unet(dim=64, dim_mults=(1, 4), channels=1, out_dim=3)
         # denoise_fn = GraphDDPM(config=kwargs["cfg"])

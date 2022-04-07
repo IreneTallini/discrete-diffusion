@@ -77,42 +77,42 @@ def run(cfg: DictConfig) -> str:
     model: pl.LightningModule = hydra.utils.instantiate(cfg.nn.module, cfg=cfg.nn, _recursive_=False, metadata=metadata)
 
     # Instantiate the callbacks
-    # template_core: NNTemplateCore = NNTemplateCore(
-    #     restore_cfg=cfg.train.get("restore", None),
-    # )
-    #
-    # callbacks: List[Callback] = build_callbacks(cfg.train.callbacks, template_core)
-    #
-    # storage_dir: str = cfg.core.storage_dir
+    template_core: NNTemplateCore = NNTemplateCore(
+        restore_cfg=cfg.train.get("restore", None),
+    )
 
-    # logger: NNLogger = NNLogger(logging_cfg=cfg.train.logging, cfg=cfg, resume_id=template_core.resume_id)
-    #
-    # pylogger.info("Instantiating the <Trainer>")
-    # trainer = pl.Trainer(
-    #     default_root_dir=storage_dir,
-    #     plugins=[NNCheckpointIO(jailing_dir=logger.run_dir)],
-    #     logger=logger,
-    #     callbacks=callbacks,
-    #     overfit_batches=1,
-    #     check_val_every_n_epoch=100,
-    #     **cfg.train.trainer,
-    # )
-    #
-    # pylogger.info("Starting training!")
-    # trainer.fit(model=model, datamodule=datamodule, ckpt_path=template_core.trainer_ckpt_path)
-    #
-    # if fast_dev_run:
-    #     pylogger.info("Skipping testing in 'fast_dev_run' mode!")
-    # else:
-    #     if "test" in cfg.nn.data.datasets and trainer.checkpoint_callback.best_model_path is not None:
-    #         pylogger.info("Starting testing!")
-    #         trainer.test(datamodule=datamodule)
-    #
-    # # Logger closing to release resources/avoid multi-run conflicts
-    # if logger is not None:
-    #     logger.experiment.finish()
-    #
-    # return logger.run_dir
+    callbacks: List[Callback] = build_callbacks(cfg.train.callbacks, template_core)
+
+    storage_dir: str = cfg.core.storage_dir
+
+    logger: NNLogger = NNLogger(logging_cfg=cfg.train.logging, cfg=cfg, resume_id=template_core.resume_id)
+    pylogger.info("Instantiating the <Trainer>")
+
+    trainer = pl.Trainer(
+        default_root_dir=storage_dir,
+        plugins=[NNCheckpointIO(jailing_dir=logger.run_dir)],
+        logger=logger,
+        callbacks=callbacks,
+        overfit_batches=1,
+        check_val_every_n_epoch=100,
+        **cfg.train.trainer,
+    )
+
+    pylogger.info("Starting training!")
+    trainer.fit(model=model, datamodule=datamodule, ckpt_path=template_core.trainer_ckpt_path)
+
+    if fast_dev_run:
+        pylogger.info("Skipping testing in 'fast_dev_run' mode!")
+    else:
+        if "test" in cfg.nn.data.datasets and trainer.checkpoint_callback.best_model_path is not None:
+            pylogger.info("Starting testing!")
+            trainer.test(datamodule=datamodule)
+
+    # Logger closing to release resources/avoid multi-run conflicts
+    if logger is not None:
+        logger.experiment.finish()
+
+    return logger.run_dir
 
 
 @hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="default")
