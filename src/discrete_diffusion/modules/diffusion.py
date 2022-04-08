@@ -5,16 +5,16 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from hydra.utils import instantiate
+from omegaconf import DictConfig
 from torch import nn
 from torch_geometric.data import Batch
 from tqdm import tqdm
 
 
 class Diffusion(nn.Module):
-    def __init__(self, cfg, feature_dim, diffusion_speed, timesteps=1000):
+    def __init__(self, denoise_fn: DictConfig, feature_dim, diffusion_speed, timesteps=1000):
         super().__init__()
-        self.cfg = cfg
-        self.denoise_fn = instantiate(self.cfg.denoise_fn, feature_dim=feature_dim)
+        self.denoise_fn = instantiate(denoise_fn, feature_dim=feature_dim)
         self.num_timesteps = int(timesteps)
         self.diffusion_speed = diffusion_speed
 
