@@ -11,6 +11,7 @@ import torch
 # import torch.nn.functional as F
 # import torchmetrics
 import wandb
+from omegaconf import DictConfig
 from torch.optim import Optimizer
 
 from nn_core.common import PROJECT_ROOT
@@ -28,7 +29,7 @@ pylogger = logging.getLogger(__name__)
 class DiffusionPLModule(pl.LightningModule):
     logger: NNLogger
 
-    def __init__(self, model, metadata: Optional[MetaData] = None, *args, **kwargs) -> None:
+    def __init__(self, model: DictConfig, metadata: Optional[MetaData] = None, *args, **kwargs) -> None:
         super().__init__()
 
         # Populate self.hparams with args and kwargs automagically!
@@ -38,7 +39,7 @@ class DiffusionPLModule(pl.LightningModule):
 
         self.metadata = metadata
 
-        self.model = hydra.utils.instantiate(self.hparams.model, cfg=self.hparams.model, feature_dim=metadata.feature_dim, _recursive_=False)
+        self.model = hydra.utils.instantiate(model, feature_dim=metadata.feature_dim, _recursive_=False)
 
         # denoise_fn = Unet(dim=64, dim_mults=(1, 4), channels=1, out_dim=3)
         # denoise_fn = GraphDDPM(config=kwargs["cfg"])

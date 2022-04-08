@@ -38,7 +38,6 @@ module:
     _target_: discrete_diffusion.modules.diffusion.Diffusion
     diffusion_speed: 0.001
     timesteps: 1000
-
     denoise_fn:
       _target_: discrete_diffusion.modules.node_embedder.NodeEmbedder
       feature_dim: ???
