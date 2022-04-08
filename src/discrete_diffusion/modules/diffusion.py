@@ -1,15 +1,17 @@
 from inspect import isfunction
 
 # import matplotlib.pyplot as plt
+from typing import List
+
 import numpy as np
 import torch
 import torch.nn.functional as F
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch import nn
-from torch_geometric.data import Batch
+from torch_geometric.data import Batch, Data
 from tqdm import tqdm
-
+from torch_geometric.utils import to_dense_adj
 
 class Diffusion(nn.Module):
     def __init__(self, denoise_fn: DictConfig, feature_dim, diffusion_speed, timesteps=1000):
@@ -17,6 +19,7 @@ class Diffusion(nn.Module):
         self.denoise_fn = instantiate(denoise_fn, feature_dim=feature_dim)
         self.num_timesteps = int(timesteps)
         self.diffusion_speed = diffusion_speed
+        self.Qt = self.get_Qt()
 
     def get_Qt(self):
         Qt = torch.empty(self.num_timesteps, 2, 2)
@@ -58,7 +61,7 @@ class Diffusion(nn.Module):
 
     def backward_diffusion(self, x_start: Batch, t, x_t):
         # Expression for q(xt-1 | xt,x0) = (Q0_{:,xt} x Qt-1_{x0,:}) / Qt_{x0,xt}
-        Qt = self.get_Qt()
+        Qt = self.Qt
         Q_likelihood = Qt[0]  # [b, num_cat, num_cat]
         Q_prior = Qt[t - 1]
         Q_evidence = Qt[t]
@@ -81,10 +84,20 @@ class Diffusion(nn.Module):
         :param t:
         :return:
         """
-        Qt = self.get_Qt()
-        Q_batch = Qt[t]  # [b, num_cat, num_cat]
+        Q_batch = self.Qt[t]  # [b, num_cat, num_cat]
         num_nodes_list = x_start.ptr[1:] - x_start.ptr[:-1]
-        num_blocks = len(num_nodes_list)
+        batch_size = len(num_nodes_list)
+
+        data_list: List[Data] = x_start.to_data_list()
+
+        batch_adj = to_dense_adj(edge_index=x_start['edge_index'], batch=x_start.batch)
+
+        for b in range(batch_size):
+            adj = batch_adj[b, x_start.ptr[b]:x_start.ptr[b+1], x_start.ptr[b]:x_start.ptr[b] ]
+        #   get the adjacency matrix
+        #   get the correct Q
+        #   run code
+        #   construct new graph with x_noisy as adjacency matrix
 
         x_start_one_hot = torch.nn.functional.one_hot(x_start.type(torch.int64), num_classes=2).type(torch.float)
         q = torch.einsum("bchwk, bkp -> bchwp", x_start_one_hot, Q_batch)
@@ -93,7 +106,8 @@ class Diffusion(nn.Module):
         return x_noisy
 
     def forward(self, x_start: Batch, *args, **kwargs):
-        t = torch.randint(0, self.num_timesteps, (x_start.shape[0],), device=x_start.device).long()
+        batch_size = x_start.ptr.shape[0] - 1
+        t = torch.randint(0, self.num_timesteps, (batch_size,)).type_as(x_start['edge_index'])
 
         x_noisy = self.forward_diffusion(x_start, t)
         q_noisy = self.backward_diffusion(x_start=x_start, t=t, x_t=x_noisy)  # [b,c,h,w,num_cat]

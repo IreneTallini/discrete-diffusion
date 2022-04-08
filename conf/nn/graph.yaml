@@ -23,8 +23,8 @@ data:
     test: 4
 
   batch_size:
-    train: 1
-    val: 32
+    train: 16
+    val: 16
     test: 16
 
   val_percentage: 0.1

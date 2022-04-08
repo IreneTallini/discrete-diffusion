@@ -51,17 +51,14 @@ class DiffusionPLModule(pl.LightningModule):
         Returns:
             output_dict: forward output containing the predictions (output logits ecc...) and the loss if any.
         """
-        # example
         return self.model(x)
 
     def step(self, x) -> Mapping[str, Any]:
-        # calls forward
         loss = self(x)
         return {"loss": loss}
 
     def training_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
-        x, _ = batch
-        step_out = self.step(x)
+        step_out = self.step(batch)
 
         self.log_dict(
             {"loss/train": step_out["loss"].cpu().detach()},
@@ -73,8 +70,7 @@ class DiffusionPLModule(pl.LightningModule):
         return step_out
 
     def validation_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
-        x, _ = batch
-        step_out = self.step(x)
+        step_out = self.step(batch)
 
         self.log_dict(
             {"loss/val": step_out["loss"].cpu().detach()},
@@ -118,9 +114,7 @@ class DiffusionPLModule(pl.LightningModule):
         wandb.log(data={"Sampled image": fig})
 
     def test_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
-        # example
-        x, _ = batch
-        step_out = self.step(x)
+        step_out = self.step(batch)
 
         self.log_dict(
             {"loss/test": step_out["loss"].cpu().detach()},
