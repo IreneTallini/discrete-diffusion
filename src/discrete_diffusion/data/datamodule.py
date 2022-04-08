@@ -1,3 +1,4 @@
+import json
 import logging
 from functools import cached_property, partial
 from pathlib import Path
@@ -19,7 +20,7 @@ from typing import Dict
 from nn_core.common import PROJECT_ROOT
 from nn_core.nn_types import Split
 
-from discrete_diffusion.data.graph_dataset import GraphGenerator
+from discrete_diffusion.data.graph_generator import GraphGenerator
 from discrete_diffusion.data.io_utils import random_split_sequence
 
 pylogger = logging.getLogger(__name__)
@@ -223,18 +224,19 @@ class GraphDataModule(MyDataModule):
 
         self.graph_generator: GraphGenerator = instantiate(config=graph_generator, _recursive_=False)
 
+        generated_nx_graphs: List[nx.Graph] = self.graph_generator.generate_data()
+
+        self.generated_graphs: List[Data] = [from_networkx(nx_graph) for nx_graph in generated_nx_graphs]
+
+        self.feature_dim = self.generated_graphs[0].x.shape[-1]
+
     def setup(self, stage: Optional[str] = None):
 
         if (stage is None or stage == "fit") and (self.train_dataset is None and self.val_datasets is None):
 
-            generated_nx_graphs: List[nx.Graph] = self.graph_generator.generate_data()
-
-            generated_graphs: List[Data] = [from_networkx(nx_graph) for nx_graph in generated_nx_graphs]
-
             # TODO: fix feature dim
-            # self.feature_dim = generated_graphs[0].x.shape[-1] if hasattr(generated_graphs[0], "x") else 0
             graphs = {}
-            graphs["train"], graphs["val"], graphs["test"] = self.split_train_val_test(generated_graphs)
+            graphs["train"], graphs["val"], graphs["test"] = self.split_train_val_test(self.generated_graphs)
 
             stages = {"train", "val", "test"}
             datasets = {}
