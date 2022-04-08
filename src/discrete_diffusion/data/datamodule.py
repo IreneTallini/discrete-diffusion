@@ -234,7 +234,6 @@ class GraphDataModule(MyDataModule):
 
         if (stage is None or stage == "fit") and (self.train_dataset is None and self.val_datasets is None):
 
-            # TODO: fix feature dim
             graphs = {}
             graphs["train"], graphs["val"], graphs["test"] = self.split_train_val_test(self.generated_graphs)
 

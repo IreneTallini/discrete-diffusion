@@ -19,9 +19,6 @@ from nn_core.model_logging import NNLogger
 
 from discrete_diffusion.data.datamodule import MetaData
 
-# from discrete_diffusion.modules.diffusion import Diffusion
-# from discrete_diffusion.modules.module import CNN  # , GraphDDPM
-# from discrete_diffusion.modules.unet import Unet
 
 pylogger = logging.getLogger(__name__)
 
@@ -63,12 +60,8 @@ class DiffusionPLModule(pl.LightningModule):
         return {"loss": loss}
 
     def training_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
-        # example
         x, _ = batch
         step_out = self.step(x)
-
-        # plt.imshow(x[0].detach().cpu().permute(1, 2, 0))
-        # plt.show()
 
         self.log_dict(
             {"loss/train": step_out["loss"].cpu().detach()},
@@ -80,7 +73,6 @@ class DiffusionPLModule(pl.LightningModule):
         return step_out
 
     def validation_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
-        # example
         x, _ = batch
         step_out = self.step(x)
 
