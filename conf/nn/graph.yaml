@@ -39,16 +39,19 @@ module:
     diffusion_speed: 0.001
     timesteps: 1000
     denoise_fn:
-      _target_: discrete_diffusion.modules.node_embedder.NodeEmbedder
+      _target_: discrete_diffusion.modules.link_predictor.LinkPredictor
       feature_dim: ???
-      num_mlp_layers: 2
-      embedding_dim: 64
-      hidden_dim: 64
-      num_convs: 2
-      dropout_rate: 0.
-      do_preprocess: false
-      use_batch_norm: true
-      jump_mode: cat
+      node_embedder:
+        _target_: discrete_diffusion.modules.node_embedder.NodeEmbedder
+        feature_dim: ???
+        num_mlp_layers: 2
+        embedding_dim: 64
+        hidden_dim: 64
+        num_convs: 2
+        dropout_rate: 0.
+        do_preprocess: false
+        use_batch_norm: true
+        jump_mode: cat
 
   optimizer:
     #  Adam-oriented deep learning

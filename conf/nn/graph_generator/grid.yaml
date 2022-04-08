@@ -2,8 +2,8 @@ _target_: discrete_diffusion.data.graph_generator.GraphGenerator
 graph_type: "grid"
 num_samples: 100
 nx_params:
-  m: [1, 2, 3, 4]
-  n: [1, 2, 3]
+  m: [2, 3, 4]
+  n: [2, 3]
 
 nx_generator:
   _target_: networkx.generators.grid_2d_graph
