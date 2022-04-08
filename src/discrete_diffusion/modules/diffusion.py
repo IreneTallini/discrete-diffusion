@@ -10,16 +10,18 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch import nn
 from torch_geometric.data import Batch, Data
-from tqdm import tqdm
 from torch_geometric.utils import to_dense_adj
+from tqdm import tqdm
 
-from discrete_diffusion.utils import edge_index_to_adj, adj_to_edge_index
+from discrete_diffusion.utils import adj_to_edge_index, edge_index_to_adj
 
 
 class Diffusion(nn.Module):
     def __init__(self, denoise_fn: DictConfig, feature_dim, diffusion_speed, timesteps=1000):
         super().__init__()
-        self.denoise_fn = instantiate(denoise_fn, cfg=denoise_fn, feature_dim=feature_dim, _recursive_=False)
+        self.denoise_fn = instantiate(
+            denoise_fn, node_embedder=denoise_fn.node_embedder, feature_dim=feature_dim, _recursive_=False
+        )
         self.num_timesteps = int(timesteps)
         self.diffusion_speed = diffusion_speed
         self.Qt = self.get_Qt()

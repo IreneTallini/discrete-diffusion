@@ -40,10 +40,11 @@ module:
     timesteps: 1000
     denoise_fn:
       _target_: discrete_diffusion.modules.link_predictor.LinkPredictor
-      feature_dim: ???
+#      feature_dim: ???
+      time_dim: 64
       node_embedder:
         _target_: discrete_diffusion.modules.node_embedder.NodeEmbedder
-        feature_dim: ???
+#        feature_dim: ???
         num_mlp_layers: 2
         embedding_dim: 64
         hidden_dim: 64
