@@ -25,6 +25,7 @@ from discrete_diffusion.data.io_utils import random_split_sequence
 
 pylogger = logging.getLogger(__name__)
 
+
 class MetaData:
     def __init__(self, feature_dim):
         """The data information the Lightning Module will be provided with.
@@ -228,7 +229,8 @@ class GraphDataModule(MyDataModule):
 
         self.generated_graphs: List[Data] = [from_networkx(nx_graph) for nx_graph in generated_nx_graphs]
 
-        self.feature_dim = self.generated_graphs[0].x.shape[-1]
+        ref_graph = self.generated_graphs[0]
+        self.feature_dim = ref_graph.x.shape[-1] if len(ref_graph.x.shape) > 1 else 1
 
     def setup(self, stage: Optional[str] = None):
 

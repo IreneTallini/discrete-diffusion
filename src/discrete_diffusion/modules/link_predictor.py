@@ -20,7 +20,7 @@ class LinkPredictor(nn.Module):
         )
 
     def forward(self, x: Batch, t: torch.Tensor):
-        # node_embeddings = self.node_embedder(x).x [N_nodes, embedding_dim]
+        node_embeddings = self.node_embedder(x)  # (num_nodes_in_batch, embedding_dim)
 
         # time_embeddings = self.time_mlp(t) #[b, time_dim]
 

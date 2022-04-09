@@ -83,6 +83,9 @@ class NodeEmbedder(nn.Module):
         # edge_index ~ (2, num_edges_in_batch)
         X, edge_index = batch.x, batch.edge_index
 
+        if len(X.shape) == 1:
+            X = X.unsqueeze(-1)
+
         h = self.preprocess_mlp(X) if self.do_preprocess else X
         jump_xs = [X, h] if self.do_preprocess else [X]
 
