@@ -3,21 +3,24 @@ from inspect import isfunction
 # import matplotlib.pyplot as plt
 from typing import List
 
+import networkx as nx
+import networkx.generators
 import numpy as np
 import torch
 import torch.nn.functional as F
+import torch_geometric.utils
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch import nn
 from torch_geometric.data import Batch, Data
-from torch_geometric.utils import to_dense_adj
+from torch_geometric.utils import from_networkx, to_dense_adj
 from tqdm import tqdm
 
 from discrete_diffusion.utils import adj_to_edge_index, edge_index_to_adj
 
 
 class Diffusion(nn.Module):
-    def __init__(self, denoise_fn: DictConfig, feature_dim, diffusion_speed, timesteps=1000):
+    def __init__(self, denoise_fn: DictConfig, feature_dim, diffusion_speed, timesteps, num_nodes_samples: List):
         super().__init__()
         self.denoise_fn = instantiate(
             denoise_fn, node_embedder=denoise_fn.node_embedder, feature_dim=feature_dim, _recursive_=False
@@ -25,6 +28,7 @@ class Diffusion(nn.Module):
         self.num_timesteps = int(timesteps)
         self.diffusion_speed = diffusion_speed
         self.Qt = self.get_Qt()
+        self.num_nodes_samples = num_nodes_samples
 
     def get_Qt(self):
         Qt = torch.empty(self.num_timesteps, 2, 2)
@@ -41,30 +45,43 @@ class Diffusion(nn.Module):
         return Qt
 
     @torch.no_grad()
-    def p_sample_discrete(self, x, t):
+    def p_sample_discrete(self, x: Batch, t) -> Batch:
+        # Returns the flattened concatenation of adj matrices in the batch
         logits = self.denoise_fn(x, t)
         sample = torch.distributions.Categorical(logits=logits).sample()
         sample = sample.type(torch.float)
-        return sample  # [b,c,h,w]
+        # Build a Batch from it
+        num_nodes_batches = x.ptr[1:] - x.ptr[:-1]
+        graphs_list = []
+        for i in range(len(num_nodes_batches)):
+            num_nodes = num_nodes_batches[i]
+            adj = sample[x.ptr[i] ** 2 : x.ptr[i + 1] ** 2].reshape((num_nodes, num_nodes))
+            edge_list, _ = torch_geometric.utils.dense_to_sparse(adj)
+            graph = Data(x=torch.ones(num_nodes), edge_index=edge_list)
+            graphs_list.append(graph)
+        graph_batch = Batch.from_data_list(graphs_list)
+        return graph_batch
 
     @torch.no_grad()
-    def p_sample_loop(self, shape):
+    def sample(self):
 
-        b = shape[0]
-        img = torch.full(shape, 2, dtype=torch.float).type_as(self.Qt[0])
+        b = len(self.num_nodes_samples)
+
+        generated_graphs: List[Data] = []
+        for n in self.num_nodes_samples:
+            nx_graph = networkx.generators.erdos_renyi_graph(n=n, p=0.5)
+            graph = from_networkx(nx_graph)
+            graph.x = torch.ones(n)
+            generated_graphs.append(graph)
+
+        graphs_batch = Batch.from_data_list(generated_graphs)
 
         for i in tqdm(reversed(range(0, self.num_timesteps)), desc="sampling loop time step", total=self.num_timesteps):
             times = torch.full((b,), i).type_as(self.Qt[0])
-            img = self.p_sample_discrete(img, times)
-        return img
+            graphs_batch = self.p_sample_discrete(graphs_batch, times)
+        return graphs_batch
 
-    @torch.no_grad()
-    def sample(self, batch_size=16):
-        image_size = self.image_size
-        channels = self.channels
-        return self.p_sample_loop((batch_size, channels, image_size, image_size))
-
-    def backward_diffusion(self, x_start_batch: Batch, t_batch: torch.Tensor, x_t_batch: Batch) -> List[torch.Tensor]:
+    def backward_diffusion(self, x_start_batch: Batch, t_batch: torch.Tensor, x_t_batch: Batch) -> torch.Tensor:
         Qt = self.Qt
 
         # Expression for q(xt-1 | xt,x0) = (Q0_{:,xt} x Qt-1_{x0,:}) / Qt_{x0,xt}
@@ -76,7 +93,7 @@ class Diffusion(nn.Module):
         x_t_data_list: List[Data] = x_t_batch.to_data_list()
         batch_size = t_batch.shape[0]
 
-        q_backward_list = []
+        q_backward_list = torch.tensor([])
         for b in range(batch_size):
 
             x_start, x_t, Q_prior, Q_evidence = (
@@ -101,12 +118,20 @@ class Diffusion(nn.Module):
             # evidence = torch.einsum("bchwk, bkl, bchwl -> bchw", x_start_one_hot, Q_evidence, x_t_one_hot)
 
             q_backward = (likelihood * prior) / evidence.unsqueeze(-1)  # [n, n, 2]
-            q_backward_list.append(q_backward)
+            # Flatten
+            q_backward = q_backward.flatten(0, 1)
+            q_backward_list = torch.cat((q_backward_list, q_backward))
+            # q_backward_list.append(q_backward)
 
         return q_backward_list
 
-    def loss(self, q_noisy, q_recon):
-        loss = F.cross_entropy(q_recon.permute(0, 4, 1, 2, 3), q_noisy.permute(0, 4, 1, 2, 3))
+    def loss(
+        self,
+        q_noisy,
+        q_recon,
+    ):
+        loss = F.cross_entropy(q_recon, q_noisy)
+
         return loss
 
     def forward_diffusion(self, x_start: Batch, t: torch.Tensor):
@@ -140,8 +165,10 @@ class Diffusion(nn.Module):
         t = torch.randint(0, self.num_timesteps, (batch_size,)).type_as(x_start["edge_index"])
 
         x_noisy = self.forward_diffusion(x_start, t)
-        q_noisy = self.backward_diffusion(x_start_batch=x_start, t_batch=t, x_t_batch=x_noisy)  # [b,c,h,w,num_cat]
-        q_approx = self.denoise_fn(x_noisy, t)
+        q_noisy = self.backward_diffusion(
+            x_start_batch=x_start, t_batch=t, x_t_batch=x_noisy
+        )  # (all_possible_edges_batch, 2)
+        q_approx = self.denoise_fn(x_noisy, t)  # (all_possible_edges_batch, 2)
 
         loss = self.loss(q_noisy, q_approx)
 

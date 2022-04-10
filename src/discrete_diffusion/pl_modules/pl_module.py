@@ -1,8 +1,10 @@
 import logging
+import math
 from typing import Any, Mapping, Optional, Sequence, Tuple, Union
 
 import hydra
 import matplotlib.pyplot as plt
+import networkx as nx
 import omegaconf
 import plotly.graph_objects as go
 import pytorch_lightning as pl
@@ -10,6 +12,7 @@ import torch
 
 # import torch.nn.functional as F
 # import torchmetrics
+import torch_geometric.utils
 import wandb
 from omegaconf import DictConfig
 from torch.optim import Optimizer
@@ -18,7 +21,6 @@ from nn_core.common import PROJECT_ROOT
 from nn_core.model_logging import NNLogger
 
 from discrete_diffusion.data.datamodule import MetaData
-
 
 pylogger = logging.getLogger(__name__)
 
@@ -82,18 +84,25 @@ class DiffusionPLModule(pl.LightningModule):
 
     def on_validation_epoch_end(self) -> None:
         # (B, C, H, W)
-        batch_size_h = 2
-        batch_size_w = 1
-        sampled_images = self.model.sample(batch_size=batch_size_h * batch_size_w)
-        sampled_images = sampled_images.permute(0, 2, 3, 1)
+        sampled_graphs = self.model.sample()
+        num_samples = len(sampled_graphs.ptr) - 1
+        side = math.sqrt(num_samples)
+        batch_size_h = math.floor(side)
+        batch_size_w = math.ceil(side)
 
-        fig, axs = plt.subplots(batch_size_h, batch_size_w)
-        axs = axs.flatten()
+        # sampled_graphs = sampled_graphs.permute(0, 2, 3, 1)
 
-        for img, ax in zip(sampled_images, axs):
-            ax.imshow(img.detach().cpu())
+        # fig, axs = plt.subplots(batch_size_h, batch_size_w)
+        # axs = axs.flatten()
 
-        self.logger.experiment.log({"Sampled images": wandb.Image(fig)})
+        for i in range(1, num_samples):
+            G = sampled_graphs[i]
+            G_nx = torch_geometric.utils.to_networkx(G)
+            plt.subplot(batch_size_h, batch_size_w, i)
+            nx.draw(G_nx, with_labels=True)
+            # ax.imshow(img.detach().cpu())
+
+        self.logger.experiment.log({"Sampled images": wandb.Image(plt.gcf())})
 
     def on_validation_epoch_end_donato(self) -> None:
         # (B, C, H, W)

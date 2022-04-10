@@ -22,18 +22,22 @@ class LinkPredictor(nn.Module):
     def forward(self, x: Batch, t: torch.Tensor):
         node_embeddings = self.node_embedder(x)  # (num_nodes_in_batch, embedding_dim)
 
-        # time_embeddings = self.time_mlp(t) #[b, time_dim]
+        length_batches = x.ptr[1:] - x.ptr[:-1]
+        time_embeddings = self.time_mlp(t)
+        time_embeddings = torch.repeat_interleave(
+            time_embeddings, length_batches, dim=0
+        )  # (num_nodes_in_batch, embedding_dim)
 
-        # TODO mischiali insieme
-        # embeddings = QUALCOSA [N_nodes, embedding_dim]
+        embeddings = node_embeddings + time_embeddings  # (num_nodes_in_batch, embedding_dim)
 
         # TODO: link prediction da rendere efficiente
-        # adj_soft = torch.einsum("nd, dn -> nn", node_embeddings, node_embeddings.T) #[N_nodes, N_nodes]
-        # adj_logit = adj_soft.unqueeze(-1).expand(1, 1, 2)
-        # adj_logit[:,:,1] = 1 - adj_logit[:,:,0]
+        adj_soft = torch.einsum("nd, dm -> nm", embeddings, embeddings.T)
+        mask = torch.block_diag(*[torch.ones(i, i) for i in length_batches]).type(torch.bool)
+        flattened_adj_soft = adj_soft[mask]
+        flattened_adj_logit = flattened_adj_soft.unsqueeze(-1).expand(-1, 2)
+        flattened_adj_logit[:, 1] = 1 - flattened_adj_logit[:, 0]  # (num_nodes_in_batch, num_nodes_in_batch, 2)
 
-        # return adj_logit
-        pass
+        return flattened_adj_logit
 
 
 class SinusoidalPosEmb(nn.Module):
