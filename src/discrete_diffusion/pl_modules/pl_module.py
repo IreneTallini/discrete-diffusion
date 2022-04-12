@@ -102,7 +102,7 @@ class DiffusionPLModule(pl.LightningModule):
             nx.draw(G_nx, with_labels=True)
             # ax.imshow(img.detach().cpu())
 
-        self.logger.experiment.log({"Sampled images": wandb.Image(plt.gcf())})
+        self.logger.experiment.log({"Sampled graphs": wandb.Image(plt.gcf())})
 
     def on_validation_epoch_end_donato(self) -> None:
         # (B, C, H, W)

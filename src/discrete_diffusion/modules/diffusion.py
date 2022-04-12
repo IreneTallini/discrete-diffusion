@@ -45,7 +45,7 @@ class Diffusion(nn.Module):
         return Qt
 
     @torch.no_grad()
-    def p_sample_discrete(self, x: Batch, t) -> Batch:
+    def sampling_step(self, x: Batch, t) -> Batch:
         # Returns the flattened concatenation of adj matrices in the batch
         logits = self.denoise_fn(x, t)
         sample = torch.distributions.Categorical(logits=logits).sample()
@@ -78,8 +78,9 @@ class Diffusion(nn.Module):
 
         for i in tqdm(reversed(range(0, self.num_timesteps)), desc="sampling loop time step", total=self.num_timesteps):
             times = torch.full((b,), i).type_as(self.Qt[0])
-            graphs_batch = self.p_sample_discrete(graphs_batch, times)
-        return graphs_batch
+            graphs_batch = self.sampling_step(graphs_batch, times)
+
+        return graphs_batch.to_data_list()
 
     def backward_diffusion(self, x_start_batch: Batch, t_batch: torch.Tensor, x_t_batch: Batch) -> torch.Tensor:
         Qt = self.Qt
@@ -130,7 +131,7 @@ class Diffusion(nn.Module):
         q_noisy,
         q_recon,
     ):
-        loss = F.cross_entropy(q_recon, q_noisy)
+        loss = F.cross_entropy(q_recon, q_noisy, reduction="sum")
 
         return loss
 

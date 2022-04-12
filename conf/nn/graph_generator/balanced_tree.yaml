@@ -1,9 +1,9 @@
 _target_: discrete_diffusion.data.graph_generator.GraphGenerator
 graph_type: "balanced_tree"
-num_samples: 100
+num_samples: 10000
 nx_params:
-  h: 4
-  r: 3
+  h: 5
+  r: 5
 
 nx_generator:
   _target_: networkx.generators.balanced_tree

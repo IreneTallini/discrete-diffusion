@@ -93,8 +93,6 @@ def run(cfg: DictConfig) -> str:
         plugins=[NNCheckpointIO(jailing_dir=logger.run_dir)],
         logger=logger,
         callbacks=callbacks,
-        overfit_batches=1,
-        check_val_every_n_epoch=100,
         **cfg.train.trainer,
     )
 
