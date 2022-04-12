@@ -30,6 +30,9 @@ class Diffusion(nn.Module):
         batch_size = x_start.ptr.shape[0] - 1
         t = torch.randint(0, self.num_timesteps, (batch_size,)).type_as(x_start["edge_index"])
 
+        # LINEA PER DEBUGGARE DIO ME NE SCAMPI NON LASCIARLA
+        t = t * 0 + 1
+
         x_noisy = self.forward_diffusion(x_start, t)
         q_noisy = self.backward_diffusion(
             x_start_batch=x_start, t_batch=t, x_t_batch=x_noisy

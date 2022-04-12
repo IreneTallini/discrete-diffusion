@@ -23,7 +23,7 @@ data:
     test: 4
 
   batch_size:
-    train: 8
+    train: 16
     val: 8
     test: 8
 
