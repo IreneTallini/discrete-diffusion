@@ -30,8 +30,8 @@ class Diffusion(nn.Module):
         batch_size = x_start.ptr.shape[0] - 1
         t = torch.randint(0, self.num_timesteps, (batch_size,)).type_as(x_start["edge_index"])
 
-        # LINEA PER DEBUGGARE DIO ME NE SCAMPI NON LASCIARLA
-        t = t * 0 + 1
+        # TODO: LINEA PER DEBUGGARE DIO ME NE SCAMPI NON LASCIARLA
+        # t = t * 0 + 1
 
         x_noisy = self.forward_diffusion(x_start, t)
         q_noisy = self.backward_diffusion(
@@ -45,6 +45,7 @@ class Diffusion(nn.Module):
 
     def get_Qt(self):
         Qt = torch.empty(self.num_timesteps, 2, 2)
+
         for t in range(1, self.num_timesteps + 1):
             flip_prob = 0.5 * (1 - (1 - 2 * self.diffusion_speed) ** t)
             not_flip_prob = 1 - flip_prob
@@ -62,7 +63,8 @@ class Diffusion(nn.Module):
 
         # Returns the flattened concatenation of adj matrices in the batch
         logits = self.denoise_fn(x, t)
-        sample = torch.distributions.Categorical(logits=logits).sample()
+        probs = torch.stack((logits, 1 - logits), dim=-1)
+        sample = torch.distributions.Categorical(logits=probs).sample()
         sample = sample.type(torch.float)
 
         # Build a Batch from it
@@ -152,9 +154,9 @@ class Diffusion(nn.Module):
         q_recon,
     ):
         # TODO: find out what's going on
-        # q_recon = torch.softmax(q_recon, dim=-1)
+        q_recon = (q_recon - torch.min(q_recon)) / (torch.max(q_recon) - torch.min(q_recon))
         # q_noisy = torch.argmax(torch.softmax(q_noisy, dim=-1), dim=-1)
-        loss = F.cross_entropy(q_recon, q_noisy, reduction="sum")
+        loss = F.binary_cross_entropy(q_recon, q_noisy[:, 0], reduction="sum")
 
         return loss
 

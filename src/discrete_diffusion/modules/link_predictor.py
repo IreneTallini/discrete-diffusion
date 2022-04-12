@@ -7,6 +7,7 @@ from omegaconf import DictConfig
 from torch.nn import Linear, ReLU, Sequential
 from torch_geometric.data import Batch
 from torch_geometric.nn import GINConv, GraphNorm, JumpingKnowledge
+import torch.nn.functional as F
 
 from discrete_diffusion.modules.mlp import MLP
 
@@ -31,13 +32,14 @@ class LinkPredictor(nn.Module):
         embeddings = node_embeddings + time_embeddings  # (num_nodes_in_batch, embedding_dim)
 
         # TODO: link prediction da rendere efficiente
-        adj_soft = torch.einsum("nd, dm -> nm", embeddings, embeddings.T)
+        normalized_embeddings = F.normalize(embeddings, dim=-1)
+        adj_soft = normalized_embeddings @ normalized_embeddings.T
+
         mask = torch.block_diag(*[torch.ones(i, i) for i in length_batches]).type(torch.bool)
         flattened_adj_soft = adj_soft[mask]
-        flattened_adj_logit = flattened_adj_soft.unsqueeze(-1).expand(-1, 2)
-        flattened_adj_logit[:, 1] = 1 - flattened_adj_logit[:, 0]  # (num_nodes_in_batch, num_nodes_in_batch, 2)
+        # result = torch.stack((flattened_adj_soft, 1 - flattened_adj_soft), dim=-1)
 
-        return flattened_adj_logit
+        return flattened_adj_soft
 
 
 class SinusoidalPosEmb(nn.Module):

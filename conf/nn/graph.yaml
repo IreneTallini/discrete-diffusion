@@ -24,8 +24,8 @@ data:
 
   batch_size:
     train: 16
-    val: 8
-    test: 8
+    val: 16
+    test: 16
 
   val_percentage: 0.1
 
