@@ -2,9 +2,8 @@ import torch
 
 
 def edge_index_to_adj(edge_index: torch.Tensor, num_nodes: int):
-
-    adj = torch.zeros((num_nodes, num_nodes)).long().type_as(edge_index)
-    adj[edge_index] = 1
+    adj = torch.zeros((num_nodes, num_nodes)).type_as(edge_index)
+    adj[edge_index[0, :], edge_index[1, :]] = 1
     return adj
 
 
