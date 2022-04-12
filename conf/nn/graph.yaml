@@ -23,12 +23,11 @@ data:
     test: 4
 
   batch_size:
-    train: 16
-    val: 16
-    test: 16
+    train: 8
+    val: 8
+    test: 8
 
   val_percentage: 0.1
-
 
 
 module:
@@ -36,16 +35,16 @@ module:
 
   model:
     _target_: discrete_diffusion.modules.diffusion.Diffusion
-    diffusion_speed: 0.001
-    timesteps: 1000
+    diffusion_speed: 0.01
+    timesteps: 100
     num_nodes_samples: [4, 5]
     denoise_fn:
       _target_: discrete_diffusion.modules.link_predictor.LinkPredictor
-#      feature_dim: ???
+      feature_dim: ???
       time_dim: 64
       node_embedder:
         _target_: discrete_diffusion.modules.node_embedder.NodeEmbedder
-#        feature_dim: ???
+        feature_dim: ???
         num_mlp_layers: 2
         embedding_dim: 64
         hidden_dim: 64
@@ -64,13 +63,13 @@ module:
     eps: 1e-08
     weight_decay: 0
 
-  lr_scheduler:
-    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
-    T_0: 10
-    T_mult: 2
-    eta_min: 0 # min value for the lr
-    last_epoch: -1
-    verbose: False
+#  lr_scheduler:
+#    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+#    T_0: 10
+#    T_mult: 2
+#    eta_min: 0 # min value for the lr
+#    last_epoch: -1
+#    verbose: False
 
 # ROBA BRUTTA Added by Irene to make the code compatible with Song one
 model:

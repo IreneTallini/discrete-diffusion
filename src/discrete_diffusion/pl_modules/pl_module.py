@@ -92,14 +92,14 @@ class DiffusionPLModule(pl.LightningModule):
 
         # sampled_graphs = sampled_graphs.permute(0, 2, 3, 1)
 
-        # fig, axs = plt.subplots(batch_size_h, batch_size_w)
         # axs = axs.flatten()
 
-        for i in range(1, num_samples):
+        fig, axs = plt.subplots(batch_size_h, batch_size_w)
+
+        for i in range(0, num_samples):
             G = sampled_graphs[i]
             G_nx = torch_geometric.utils.to_networkx(G)
-            plt.subplot(batch_size_h, batch_size_w, i)
-            nx.draw(G_nx, with_labels=True)
+            nx.draw(G_nx, with_labels=True, ax=axs[i])
             # ax.imshow(img.detach().cpu())
 
         self.logger.experiment.log({"Sampled graphs": wandb.Image(plt.gcf())})
