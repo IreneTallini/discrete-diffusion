@@ -22,10 +22,12 @@ from torchvision import transforms
 
 from nn_core.common import PROJECT_ROOT
 from nn_core.nn_types import Split
-from src.discrete_diffusion.utils import edge_index_to_adj
 
 from discrete_diffusion.data.graph_generator import GraphGenerator
 from discrete_diffusion.data.io_utils import random_split_sequence
+
+# from src.discrete_diffusion.utils import edge_index_to_adj
+
 
 pylogger = logging.getLogger(__name__)
 
