@@ -4,6 +4,9 @@ from typing import List, Optional
 import hydra
 import omegaconf
 import pytorch_lightning as pl
+import torch_geometric.data
+import wandb
+from matplotlib import pyplot as plt
 from omegaconf import DictConfig, ListConfig
 from pytorch_lightning import Callback
 
@@ -16,6 +19,7 @@ from nn_core.serialization import NNCheckpointIO
 # Force the execution of __init__.py if this file is executed directly.
 import discrete_diffusion  # noqa
 from discrete_diffusion.data.datamodule import MetaData
+from discrete_diffusion.utils import edge_index_to_adj
 
 pylogger = logging.getLogger(__name__)
 
@@ -87,6 +91,15 @@ def run(cfg: DictConfig) -> str:
 
     logger: NNLogger = NNLogger(logging_cfg=cfg.train.logging, cfg=cfg, resume_id=template_core.resume_id)
     pylogger.info("Instantiating the <Trainer>")
+
+    ref_batch = next(iter(datamodule.train_dataloader()))
+    ref_graph = torch_geometric.data.Batch.to_data_list(ref_batch)[0]
+    ref_adj = edge_index_to_adj(ref_graph.edge_index, len(ref_graph.x))
+    plt.imshow(ref_adj)
+    plt.colorbar()
+
+    logger.experiment.log({"Initial adjacency matrix": wandb.Image(plt.gcf())})
+    plt.close()
 
     trainer = pl.Trainer(
         default_root_dir=storage_dir,

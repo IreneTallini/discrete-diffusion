@@ -1,11 +1,17 @@
 # import matplotlib.pyplot as plt
+import math
 from typing import List
 
+import networkx as nx
 import networkx.generators
 import torch
 import torch.nn.functional as F
 import torch_geometric.utils
+import wandb
 from hydra.utils import instantiate
+from matplotlib import cm
+from matplotlib import pyplot as plt
+from matplotlib.cm import coolwarm
 from omegaconf import DictConfig
 from torch import nn
 from torch_geometric.data import Batch, Data
@@ -59,28 +65,31 @@ class Diffusion(nn.Module):
         return Qt
 
     @torch.no_grad()
-    def sampling_step(self, x: Batch, t) -> Batch:
+    def sampling_step(self, x: Batch, t) -> (Batch, torch.Tensor):
 
         # Returns the flattened concatenation of adj matrices in the batch
-        logits = self.denoise_fn(x, t)
-        probs = torch.stack((logits, 1 - logits), dim=-1)
-        sample = torch.distributions.Categorical(probs=probs).sample()
+        probs = self.denoise_fn(x, t)
+        probs_expanded = torch.stack((probs, 1 - probs), dim=-1)
+        sample = torch.distributions.Categorical(probs=probs_expanded).sample()
         sample = sample.type(torch.float)
 
         # Build a Batch from it
         num_nodes_batches = x.ptr[1:] - x.ptr[:-1]
         graphs_list = []
+        adj_list = []
 
         for i in range(len(num_nodes_batches)):
             num_nodes = num_nodes_batches[i]
             adj = sample[x.ptr[i] ** 2 : x.ptr[i + 1] ** 2].reshape((num_nodes, num_nodes))
+            adj_soft = probs[x.ptr[i] ** 2 : x.ptr[i + 1] ** 2].reshape((num_nodes, num_nodes))
             edge_list, _ = torch_geometric.utils.dense_to_sparse(adj)
             graph = Data(x=torch.ones(num_nodes).type_as(self.Qt[0]), edge_index=edge_list.type_as(self.Qt[0]).long())
             graphs_list.append(graph)
+            adj_list.append(adj_soft)
 
         graph_batch = Batch.from_data_list(graphs_list)
 
-        return graph_batch
+        return graph_batch, adj_list
 
     @torch.no_grad()
     def sample(self):
@@ -97,11 +106,25 @@ class Diffusion(nn.Module):
 
         graphs_batch = Batch.from_data_list(generated_graphs)
 
+        side = math.sqrt(self.num_timesteps // 10)
+        batch_size_h = math.ceil(side)
+        batch_size_w = math.ceil(side)
+        # fig_graphs, axs_graphs = plt.subplots(batch_size_h, batch_size_w)
+        fig_adj, axs_adj = plt.subplots(batch_size_h, batch_size_w)
+        # axs_graphs = axs_graphs.flatten()
+        axs_adj = axs_adj.flatten()
+
         for i in tqdm(reversed(range(0, self.num_timesteps)), desc="sampling loop time step", total=self.num_timesteps):
             times = torch.full((b,), i).type_as(self.Qt[0])
-            graphs_batch = self.sampling_step(graphs_batch, times)
+            graphs_batch, adj_list = self.sampling_step(graphs_batch, times)
+            if i % 10 == 0:
+                # G = graphs_batch.to_data_list()[0]
+                # G_nx = torch_geometric.utils.to_networkx(G)
+                # nx.draw(G_nx, with_labels=True, ax=axs_graphs[i // 10], node_size=1)
+                axs_adj[i // 10].imshow(adj_list[0], cmap=coolwarm, vmin=0, vmax=1)
+        fig_adj.colorbar(cm.ScalarMappable(cmap=coolwarm))
 
-        return graphs_batch.to_data_list()
+        return graphs_batch.to_data_list(), fig_adj
 
     def backward_diffusion(self, x_start_batch: Batch, t_batch: torch.Tensor, x_t_batch: Batch) -> torch.Tensor:
         Qt = self.Qt

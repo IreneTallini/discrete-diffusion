@@ -32,17 +32,15 @@ class LinkPredictor(nn.Module):
         embeddings = node_embeddings + time_embeddings  # (num_nodes_in_batch, embedding_dim)
 
         # TODO: link prediction da rendere efficiente
-        normalized_embeddings = F.normalize(embeddings, dim=-1)
-        adj_soft = normalized_embeddings @ normalized_embeddings.T
+        # normalized_embeddings = F.normalize(embeddings, dim=-1)
+        adj_soft = torch.sigmoid(embeddings @ embeddings.T)
 
         mask = torch.block_diag(*[torch.ones(i, i) for i in length_batches]).type(torch.bool)
         flattened_adj_soft = adj_soft[mask]
-        m = torch.min(flattened_adj_soft)
-        M = torch.max(flattened_adj_soft)
-        normalized_flattened_adj_soft = (flattened_adj_soft - m) / (M - m)
+        # normalized_flattened_adj_soft = (flattened_adj_soft + 1) / 2
         # result = torch.stack((flattened_adj_soft, 1 - flattened_adj_soft), dim=-1)
 
-        return normalized_flattened_adj_soft
+        return flattened_adj_soft
 
 
 class SinusoidalPosEmb(nn.Module):

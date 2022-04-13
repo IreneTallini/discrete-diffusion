@@ -84,7 +84,7 @@ class DiffusionPLModule(pl.LightningModule):
 
     def on_validation_epoch_end(self) -> None:
         # (B, C, H, W)
-        sampled_graphs = self.model.sample()
+        sampled_graphs, diffusion_images = self.model.sample()
         num_samples = len(sampled_graphs)
         side = math.sqrt(num_samples)
         batch_size_h = math.floor(side)
@@ -103,6 +103,7 @@ class DiffusionPLModule(pl.LightningModule):
             # ax.imshow(img.detach().cpu())
 
         self.logger.experiment.log({"Sampled graphs": wandb.Image(fig)})
+        self.logger.experiment.log({"Sampling adjacency matrices": wandb.Image(diffusion_images)})
         plt.close(fig)
 
     def on_validation_epoch_end_donato(self) -> None:
