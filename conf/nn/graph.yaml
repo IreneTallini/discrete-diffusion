@@ -37,7 +37,7 @@ module:
     _target_: discrete_diffusion.modules.diffusion.Diffusion
     diffusion_speed: 0.01
     timesteps: 150
-    num_nodes_samples: [7, 7]
+    num_nodes_samples: [10, 10]
     denoise_fn:
       _target_: discrete_diffusion.modules.link_predictor.LinkPredictor
       feature_dim: ???
