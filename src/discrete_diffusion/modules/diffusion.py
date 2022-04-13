@@ -121,7 +121,7 @@ class Diffusion(nn.Module):
                 # G = graphs_batch.to_data_list()[0]
                 # G_nx = torch_geometric.utils.to_networkx(G)
                 # nx.draw(G_nx, with_labels=True, ax=axs_graphs[i // 10], node_size=1)
-                axs_adj[i // 10].imshow(adj_list[0], cmap=coolwarm, vmin=0, vmax=1)
+                axs_adj[i // 10].imshow(adj_list[0].cpu().detach(), cmap=coolwarm, vmin=0, vmax=1)
         fig_adj.colorbar(cm.ScalarMappable(cmap=coolwarm))
 
         return graphs_batch.to_data_list(), fig_adj

@@ -95,7 +95,7 @@ def run(cfg: DictConfig) -> str:
     ref_batch = next(iter(datamodule.train_dataloader()))
     ref_graph = torch_geometric.data.Batch.to_data_list(ref_batch)[0]
     ref_adj = edge_index_to_adj(ref_graph.edge_index, len(ref_graph.x))
-    plt.imshow(ref_adj)
+    plt.imshow(ref_adj.cpu().detach())
     plt.colorbar()
 
     logger.experiment.log({"Initial adjacency matrix": wandb.Image(plt.gcf())})
