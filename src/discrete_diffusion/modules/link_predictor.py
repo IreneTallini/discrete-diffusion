@@ -2,12 +2,12 @@ import math
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch.nn import Linear, ReLU, Sequential
 from torch_geometric.data import Batch
 from torch_geometric.nn import GINConv, GraphNorm, JumpingKnowledge
-import torch.nn.functional as F
 
 from discrete_diffusion.modules.mlp import MLP
 
@@ -37,9 +37,12 @@ class LinkPredictor(nn.Module):
 
         mask = torch.block_diag(*[torch.ones(i, i) for i in length_batches]).type(torch.bool)
         flattened_adj_soft = adj_soft[mask]
+        m = torch.min(flattened_adj_soft)
+        M = torch.max(flattened_adj_soft)
+        normalized_flattened_adj_soft = (flattened_adj_soft - m) / (M - m)
         # result = torch.stack((flattened_adj_soft, 1 - flattened_adj_soft), dim=-1)
 
-        return flattened_adj_soft
+        return normalized_flattened_adj_soft
 
 
 class SinusoidalPosEmb(nn.Module):

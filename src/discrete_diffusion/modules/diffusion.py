@@ -39,7 +39,7 @@ class Diffusion(nn.Module):
         )  # (all_possible_edges_batch, 2)
         q_approx = self.denoise_fn(x_noisy, t)  # (all_possible_edges_batch, 2)
 
-        loss = self.loss(q_noisy, q_approx)
+        loss = self.loss(q_target=q_noisy[:, 0], q_approx=q_approx)
 
         return loss
 
@@ -143,20 +143,22 @@ class Diffusion(nn.Module):
             # (n*n, 2)
             q_backward = q_backward.flatten(0, 1)
 
-            q_backward_list = torch.cat((q_backward_list, q_backward))
+            q_backward_all = torch.cat((q_backward_list, q_backward))
             # q_backward_list.append(q_backward)
 
-        return q_backward_list
+        return q_backward_all
 
     def loss(
         self,
-        q_noisy,
-        q_recon,
+        q_target,
+        q_approx,
     ):
         # TODO: find out what's going on
-        q_recon = (q_recon - torch.min(q_recon)) / (torch.max(q_recon) - torch.min(q_recon))
+        # q_recon = (q_recon - torch.min(q_recon)) / (torch.max(q_recon) - torch.min(q_recon))
         # q_noisy = torch.argmax(torch.softmax(q_noisy, dim=-1), dim=-1)
-        loss = F.binary_cross_entropy(q_recon, q_noisy[:, 0], reduction="sum")
+        loss = F.binary_cross_entropy(q_approx, q_target, reduction="sum")
+
+        # - (q_noisy[0, 0] * torch.log2(q_recon[0]) + (1 - q_noisy[0, 0]) * torch.log2(1 - q_recon[0]))
 
         return loss
 
