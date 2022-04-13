@@ -115,7 +115,7 @@ class Diffusion(nn.Module):
         x_t_data_list: List[Data] = x_t_batch.to_data_list()
         batch_size = t_batch.shape[0]
 
-        q_backward_list = torch.tensor([]).type_as(Q_likelihood)
+        q_backward_all = torch.tensor([]).type_as(Q_likelihood)
         for b in range(batch_size):
 
             x_start, x_t, Q_prior, Q_evidence = (
@@ -143,7 +143,7 @@ class Diffusion(nn.Module):
             # (n*n, 2)
             q_backward = q_backward.flatten(0, 1)
 
-            q_backward_all = torch.cat((q_backward_list, q_backward))
+            q_backward_all = torch.cat((q_backward_all, q_backward))
             # q_backward_list.append(q_backward)
 
         return q_backward_all
