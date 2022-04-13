@@ -64,7 +64,7 @@ class Diffusion(nn.Module):
         # Returns the flattened concatenation of adj matrices in the batch
         logits = self.denoise_fn(x, t)
         probs = torch.stack((logits, 1 - logits), dim=-1)
-        sample = torch.distributions.Categorical(logits=probs).sample()
+        sample = torch.distributions.Categorical(probs=probs).sample()
         sample = sample.type(torch.float)
 
         # Build a Batch from it
@@ -156,7 +156,7 @@ class Diffusion(nn.Module):
         # TODO: find out what's going on
         # q_recon = (q_recon - torch.min(q_recon)) / (torch.max(q_recon) - torch.min(q_recon))
         # q_noisy = torch.argmax(torch.softmax(q_noisy, dim=-1), dim=-1)
-        loss = F.binary_cross_entropy(q_approx, q_target, reduction="sum")
+        loss = F.binary_cross_entropy(q_approx, q_target, reduction="mean")
 
         # - (q_noisy[0, 0] * torch.log2(q_recon[0]) + (1 - q_noisy[0, 0]) * torch.log2(1 - q_recon[0]))
 
