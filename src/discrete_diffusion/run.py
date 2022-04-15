@@ -1,7 +1,9 @@
 import logging
+import math
 from typing import List, Optional
 
 import hydra
+import networkx as nx
 import omegaconf
 import pytorch_lightning as pl
 import torch_geometric.data
@@ -93,12 +95,16 @@ def run(cfg: DictConfig) -> str:
     pylogger.info("Instantiating the <Trainer>")
 
     ref_batch = next(iter(datamodule.train_dataloader()))
-    ref_graph = torch_geometric.data.Batch.to_data_list(ref_batch)[0]
-    ref_adj = edge_index_to_adj(ref_graph.edge_index, len(ref_graph.x))
-    plt.imshow(ref_adj.cpu().detach())
-    plt.colorbar()
+    ref_list = torch_geometric.data.Batch.to_data_list(ref_batch)
+    side = math.ceil(math.sqrt(cfg.nn.data.batch_size.train))
+    fig, axes = plt.subplots(side, side)
+    axs = axes.flatten()
+    for i in range(cfg.nn.data.batch_size.train):
+        graph = ref_list[i]
+        nx_graph = torch_geometric.utils.to_networkx(graph)
+        nx.draw(nx_graph, with_labels=True, ax=axs[i], node_size=1)
 
-    logger.experiment.log({"Initial adjacency matrix": wandb.Image(plt.gcf())})
+    logger.experiment.log({"Dataset Example": wandb.Image(fig)})
     plt.close()
 
     trainer = pl.Trainer(

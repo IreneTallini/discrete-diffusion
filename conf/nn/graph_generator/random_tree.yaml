@@ -2,7 +2,7 @@ _target_: discrete_diffusion.data.graph_generator.GraphGenerator
 graph_type: "random_tree"
 num_samples: 10000
 nx_params:
-  n: [10]
+  n: [5]
 
 nx_generator:
   _target_: networkx.generators.random_tree
