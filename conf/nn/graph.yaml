@@ -1,5 +1,5 @@
 defaults:
-  - graph_generator: balanced_tree
+  - graph_generator: random_tree
   - _self_
 
 data:
@@ -36,7 +36,7 @@ module:
   model:
     _target_: discrete_diffusion.modules.diffusion.Diffusion
     diffusion_speed: 0.01
-    timesteps: 150
+    timesteps: 160
     num_nodes_samples: [7, 7]
     denoise_fn:
       _target_: discrete_diffusion.modules.link_predictor.LinkPredictor
