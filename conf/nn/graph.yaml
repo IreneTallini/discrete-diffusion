@@ -34,14 +34,17 @@ module:
   _target_: discrete_diffusion.pl_modules.pl_module.DiffusionPLModule
 
   model:
+
     _target_: discrete_diffusion.modules.diffusion.Diffusion
     diffusion_speed: 0.01
     timesteps: 160
-    num_nodes_samples: [7, 7]
+    num_nodes_samples: [4, 4]
+
     denoise_fn:
       _target_: discrete_diffusion.modules.link_predictor.LinkPredictor
       feature_dim: ???
       time_dim: 64
+
       node_embedder:
         _target_: discrete_diffusion.modules.node_embedder.NodeEmbedder
         feature_dim: ???
@@ -51,25 +54,20 @@ module:
         num_convs: 2
         dropout_rate: 0.
         do_preprocess: false
-        use_batch_norm: true
+        use_batch_norm: false
         jump_mode: cat
 
   optimizer:
-    #  Adam-oriented deep learning
     _target_: torch.optim.Adam
-    #  These are all default parameters for the Adam optimizer
     lr: 0.001
-    betas: [ 0.9, 0.999 ]
-    eps: 1e-08
-    weight_decay: 0
 
-  lr_scheduler:
-    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
-    T_0: 10
-    T_mult: 2
-    eta_min: 0 # min value for the lr
-    last_epoch: -1
-    verbose: False
+#  lr_scheduler:
+#    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+#    T_0: 10
+#    T_mult: 2
+#    eta_min: 0 # min value for the lr
+#    last_epoch: -1
+#    verbose: False
 
 # ROBA BRUTTA Added by Irene to make the code compatible with Song one
 model:

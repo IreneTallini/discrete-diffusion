@@ -90,10 +90,6 @@ class DiffusionPLModule(pl.LightningModule):
         batch_size_h = math.floor(side)
         batch_size_w = math.ceil(side)
 
-        # sampled_graphs = sampled_graphs.permute(0, 2, 3, 1)
-
-        # axs = axs.flatten()
-
         fig, axs = plt.subplots(batch_size_h, batch_size_w)
 
         for i in range(0, num_samples):

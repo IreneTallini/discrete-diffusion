@@ -29,13 +29,12 @@ class NodeEmbedder(nn.Module):
         self.use_batch_norm = use_batch_norm
 
         self.preprocess_mlp = (
-            Sequential(
-                Linear(self.feature_dim, self.hidden_dim),
-                GraphNorm(self.hidden_dim) if self.use_batch_norm else nn.Identity(),
-                ReLU(),
-                Linear(self.hidden_dim, self.hidden_dim),
-                GraphNorm(self.hidden_dim) if self.use_batch_norm else nn.Identity(),
-                ReLU(),
+            MLP(
+                num_layers=num_mlp_layers,
+                input_dim=self.feature_dim,
+                output_dim=self.embedding_dim,
+                hidden_dim=self.hidden_dim,
+                use_batch_norm=self.use_batch_norm,
             )
             if do_preprocess
             else None
@@ -45,13 +44,12 @@ class NodeEmbedder(nn.Module):
         for conv in range(self.num_convs):
             input_dim = self.feature_dim if (conv == 0 and not self.do_preprocess) else self.hidden_dim
             conv = GINConv(
-                Sequential(
-                    Linear(input_dim, self.hidden_dim),
-                    GraphNorm(self.hidden_dim) if self.use_batch_norm else nn.Identity(),
-                    ReLU(),
-                    Linear(self.hidden_dim, self.hidden_dim),
-                    GraphNorm(self.hidden_dim) if self.use_batch_norm else nn.Identity(),
-                    ReLU(),
+                MLP(
+                    num_layers=num_mlp_layers,
+                    input_dim=input_dim,
+                    output_dim=self.embedding_dim,
+                    hidden_dim=self.hidden_dim,
+                    use_batch_norm=self.use_batch_norm,
                 )
             )
             self.convs.append(conv)
