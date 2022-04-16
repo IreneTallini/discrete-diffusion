@@ -38,7 +38,9 @@ class LinkPredictor(nn.Module):
         embeddings = node_embeddings + time_embeddings
 
         cosine_similarities = compute_cosine_similarities(embeddings, embeddings.T)
-        adj_soft = torch.sigmoid(cosine_similarities)
+        # scalar_product = embeddings @ embeddings.T
+        # adj_soft = torch.sigmoid(cosine_similarities)
+        adj_soft = (cosine_similarities + 1) / 2
 
         mask = torch.block_diag(*[torch.ones(i, i) for i in graph_sizes]).type(torch.bool)
         flattened_adj_soft = adj_soft[mask]

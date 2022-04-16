@@ -4,7 +4,10 @@ from torch_geometric.data import Batch
 
 
 def compute_cosine_similarities(x, y):
-    return F.normalize(x) @ F.normalize(y)
+    cosine_sim = F.normalize(x) @ F.normalize(y, dim=0)
+    # Ensures cosine sim is between 1 and -1
+    cosine_sim = cosine_sim.clamp(min=-0.99, max=0.99)
+    return cosine_sim
 
 
 def edge_index_to_adj(edge_index: torch.Tensor, num_nodes: int):

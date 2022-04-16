@@ -242,7 +242,11 @@ class Diffusion(nn.Module):
         assert flattened_sampled_adjs.shape == edge_probs.shape
 
         graph_sizes = get_graph_sizes_from_batch(x_noisy)
-        flattened_adj_indices = [x_noisy.ptr[i] ** 2 for i in range(batch_size + 1)]
+        flat_idx = x_noisy.ptr[0]
+        flattened_adj_indices = [flat_idx]
+        for i in range(batch_size):
+            flat_idx = flat_idx + graph_sizes[i] ** 2
+            flattened_adj_indices.append(flat_idx)
 
         graphs_list: List[Data] = []
         edge_probs_list: List[torch.Tensor] = []
@@ -312,7 +316,7 @@ class Diffusion(nn.Module):
 
             if i % freq == 0 or i == self.num_timesteps - 1:
                 axs_adj[i // freq].imshow(edge_probs_list[0].cpu().detach(), cmap=coolwarm, vmin=0, vmax=1)
-                axs_adj[i // freq].set_title("ts = " + str(i))
+                axs_adj[i // freq].set_title("noise = " + str(i))
 
         fig_adj.colorbar(cm.ScalarMappable(cmap=coolwarm))
 
