@@ -237,7 +237,7 @@ class Diffusion(nn.Module):
             # (all_possible_edges_in_batch, )
             flattened_sampled_adjs = Categorical(probs=edge_probs_expanded).sample().long()
         else:
-            flattened_sampled_adjs = (edge_probs > 0.5).long()
+            flattened_sampled_adjs = (edge_probs < 0.5).long()
 
         assert flattened_sampled_adjs.shape == edge_probs.shape
 
