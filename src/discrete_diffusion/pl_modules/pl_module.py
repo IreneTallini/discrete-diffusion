@@ -87,10 +87,10 @@ class DiffusionPLModule(pl.LightningModule):
         sampled_graphs, diffusion_images = self.model.sample()
 
         num_samples = len(sampled_graphs)
-        side = math.sqrt(num_samples)
-        batch_size_h, batch_size_w = math.floor(side), math.ceil(side)
+        side = math.ceil(math.sqrt(num_samples))
 
-        fig, axs = plt.subplots(batch_size_h, batch_size_w)
+        fig, axs = plt.subplots(side, side)
+        axs = axs.flatten()
 
         for i in range(0, num_samples):
             data = sampled_graphs[i]
