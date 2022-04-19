@@ -6,7 +6,7 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch_geometric.data import Batch
 
-from discrete_diffusion.utils import compute_cosine_similarities, get_graph_sizes_from_batch
+from discrete_diffusion.utils import compute_self_similarities, get_graph_sizes_from_batch
 
 
 class LinkPredictor(nn.Module):
@@ -37,13 +37,10 @@ class LinkPredictor(nn.Module):
         # (num_nodes_in_batch, embedding_dim)
         embeddings = node_embeddings + time_embeddings
 
-        cosine_similarities = compute_cosine_similarities(embeddings, embeddings.T)
-        # scalar_product = embeddings @ embeddings.T
-        # adj_soft = torch.sigmoid(cosine_similarities)
-        adj_soft = (cosine_similarities + 1) / 2
+        cosine_similarities = compute_self_similarities(embeddings)
 
         mask = torch.block_diag(*[torch.ones(i, i) for i in graph_sizes]).type(torch.bool)
-        flattened_adj_soft = adj_soft[mask]
+        flattened_adj_soft = cosine_similarities[mask]
 
         return flattened_adj_soft
 

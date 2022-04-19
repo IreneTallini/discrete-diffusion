@@ -83,42 +83,23 @@ class DiffusionPLModule(pl.LightningModule):
         return step_out
 
     def on_validation_epoch_end(self) -> None:
-        # (B, C, H, W)
+
         sampled_graphs, diffusion_images = self.model.sample()
+
         num_samples = len(sampled_graphs)
         side = math.sqrt(num_samples)
-        batch_size_h = math.floor(side)
-        batch_size_w = math.ceil(side)
+        batch_size_h, batch_size_w = math.floor(side), math.ceil(side)
 
         fig, axs = plt.subplots(batch_size_h, batch_size_w)
 
         for i in range(0, num_samples):
-            G = sampled_graphs[i]
-            G_nx = torch_geometric.utils.to_networkx(G)
-            nx.draw(G_nx, with_labels=True, ax=axs[i])
-            # ax.imshow(img.detach().cpu())
+            data = sampled_graphs[i]
+            G = torch_geometric.utils.to_networkx(data)
+            nx.draw(G, with_labels=True, ax=axs[i])
 
         self.logger.experiment.log({"Sampled graphs": wandb.Image(fig)})
         self.logger.experiment.log({"Sampling adjacency matrices": wandb.Image(diffusion_images)})
         plt.close(fig)
-
-    def on_validation_epoch_end_donato(self) -> None:
-        # (B, C, H, W)
-        sampled_images = self.model.sample(batch_size=1)
-        sampled_images = sampled_images[0]
-        sampled_image = sampled_images.permute(1, 2, 0)
-        sampled_image = sampled_image.squeeze(-1)
-        sampled_image = (sampled_image - sampled_image.min()) / (sampled_image.max() - sampled_image.min()) * 255.0
-
-        layout = go.Layout(
-            autosize=False,
-            width=500,
-            height=500,
-        )
-
-        fig = go.Figure(data=go.Heatmap(z=sampled_image.detach().cpu(), zmin=0, zmax=255), layout=layout)
-
-        wandb.log(data={"Sampled image": fig})
 
     def test_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
         step_out = self.step(batch)
