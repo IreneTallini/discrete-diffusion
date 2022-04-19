@@ -233,7 +233,7 @@ class Diffusion(nn.Module):
 
         edge_probs_expanded = torch.stack((edge_probs, 1 - edge_probs), dim=-1)
 
-        if t[0] < self.num_timesteps - 1:
+        if t[0] != 0:
             # (all_possible_edges_in_batch, )
             flattened_sampled_adjs = Categorical(probs=edge_probs_expanded).sample().long()
         else:
