@@ -97,9 +97,8 @@ class DiffusionPLModule(pl.LightningModule):
             G = torch_geometric.utils.to_networkx(data)
             nx.draw(G, with_labels=True, ax=axs[i])
 
-        self.logger.experiment.log({"Sampled graphs": wandb.Image(fig)})
-        self.logger.experiment.log({"Sampling adjacency matrices": wandb.Image(diffusion_images)})
-        plt.close(fig)
+        wandb.log(data={"Sampled graphs": wandb.Image(fig)})
+        wandb.log(data={"Adjacency matrices": wandb.Image(diffusion_images)})
 
     def test_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
         step_out = self.step(batch)

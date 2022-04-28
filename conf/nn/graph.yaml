@@ -5,6 +5,17 @@ defaults:
 data:
   _target_: discrete_diffusion.data.datamodule.GraphDataModule
 
+  dataset_name: ENZYMES
+  data_dir: ${oc.env:PROJECT_ROOT}/data/${nn.data.dataset_name}
+
+  feature_params:
+    features_to_consider:
+      - degree
+      - tags
+    #      - num_cycles
+
+    max_considered_cycle_len: 4
+
   datasets:
     train:
       _target_: discrete_diffusion.data.graph_dataset.GeneratedGraphDataset
@@ -15,6 +26,8 @@ data:
     test:
       _target_: discrete_diffusion.data.graph_dataset.GeneratedGraphDataset
 
+
+
   gpus: ${train.trainer.gpus}
 
   num_workers:
@@ -23,9 +36,9 @@ data:
     test: 4
 
   batch_size:
-    train: 8
-    val: 8
-    test: 8
+    train: 1
+    val: 1
+    test: 1
 
   val_percentage: 0.1
 
@@ -36,8 +49,8 @@ module:
   model:
 
     _target_: discrete_diffusion.modules.diffusion.Diffusion
-    diffusion_speed: 0.01
-    timesteps: 160
+    diffusion_speed: 0.01 #0.1 # 0.01
+    timesteps: 160 #160
     num_nodes_samples: [4, 4]
 
     denoise_fn:
@@ -55,7 +68,7 @@ module:
         dropout_rate: 0.
         do_preprocess: false
         use_batch_norm: false
-        jump_mode: cat
+        jump_mode: none
 
   optimizer:
     _target_: torch.optim.Adam

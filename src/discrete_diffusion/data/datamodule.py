@@ -20,7 +20,7 @@ from torch_geometric.utils import from_networkx
 from torchvision import transforms
 
 from discrete_diffusion.data.graph_generator import GraphGenerator
-from discrete_diffusion.data.io_utils import random_split_sequence
+from discrete_diffusion.data.io_utils import random_split_sequence, load_data
 
 # from src.discrete_diffusion.utils import edge_index_to_adj
 
@@ -213,7 +213,7 @@ class MyDataModule(pl.LightningDataModule):
         return f"{self.__class__.__name__}(" f"{self.datasets=}, " f"{self.num_workers=}, " f"{self.batch_size=})"
 
 
-class GraphDataModule(MyDataModule):
+class SyntheticGraphDataModule(MyDataModule):
     def __init__(
         self,
         graph_generator: DictConfig,
@@ -240,6 +240,69 @@ class GraphDataModule(MyDataModule):
 
             graphs = {}
             graphs["train"], graphs["val"], graphs["test"] = self.split_train_val_test(self.generated_graphs)
+
+            stages = {"train", "val", "test"}
+            datasets = {}
+
+            for stage in stages:
+                config = self.datasets[stage]
+                datasets[stage] = hydra.utils.instantiate(
+                    config=config,
+                    samples=graphs[stage],
+                )
+
+            self.train_dataset = datasets["train"]
+            self.val_datasets = [datasets["val"]]
+            self.test_datasets = [datasets["test"]]
+
+    def split_train_val_test(self, graphs):
+        split_ratio = {"train": 0.8, "val": 0.1, "test": 0.1}
+
+        train_val, test = random_split_sequence(graphs, split_ratio["train"] + split_ratio["val"])
+
+        train, val = random_split_sequence(
+            train_val, split_ratio["train"] / (split_ratio["train"] + split_ratio["val"])
+        )
+
+        return train, val, test
+
+    def get_collate_fn(self, split):
+
+        return Batch.from_data_list
+
+
+class GraphDataModule(MyDataModule):
+    def __init__(
+        self,
+        data_dir: str,
+        dataset_name: str,
+        feature_params,
+        datasets: DictConfig,
+        num_workers: DictConfig,
+        batch_size: DictConfig,
+        gpus: Optional[Union[List[int], str, int]],
+        val_percentage: float,
+        **kwargs,
+    ):
+        super().__init__(datasets, num_workers, batch_size, gpus, val_percentage)
+        self.data_dir = data_dir
+        self.dataset_name = dataset_name
+
+        self.data_list, self.class_to_label_dict = load_data(
+            self.data_dir,
+            self.dataset_name,
+            feature_params=feature_params,
+        )
+
+        ref_data = self.data_list[0]
+        self.feature_dim = ref_data.x.shape[-1] if len(ref_data.x.shape) > 1 else 1
+
+    def setup(self, stage: Optional[str] = None):
+
+        if (stage is None or stage == "fit") and (self.train_dataset is None and self.val_datasets is None):
+
+            graphs = {}
+            graphs["train"], graphs["val"], graphs["test"] = self.split_train_val_test(self.data_list)
 
             stages = {"train", "val", "test"}
             datasets = {}

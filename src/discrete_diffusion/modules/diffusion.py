@@ -74,7 +74,7 @@ class Diffusion(nn.Module):
         # (all_possible_edges_batch)
         q_approx = self.denoise_fn(x_noisy, random_timesteps)
 
-        loss = self.compute_loss(q_target=q_noisy[:, 0], q_approx=q_approx)
+        loss = self.compute_loss(q_target=q_noisy[:, 1], q_approx=q_approx)
 
         return loss
 
@@ -231,13 +231,14 @@ class Diffusion(nn.Module):
         # (all_possible_edges_in_batch, )
         edge_probs = self.denoise_fn(x_noisy, t)
 
-        edge_probs_expanded = torch.stack((edge_probs, 1 - edge_probs), dim=-1)
+        # edge_probs_expanded = torch.stack((edge_probs, 1 - edge_probs), dim=-1)
+        edge_probs_expanded = torch.stack((1 - edge_probs, edge_probs), dim=-1)
 
         if t[0] != 0:
             # (all_possible_edges_in_batch, )
             flattened_sampled_adjs = Categorical(probs=edge_probs_expanded).sample().long()
         else:
-            flattened_sampled_adjs = (edge_probs < 0.5).long()
+            flattened_sampled_adjs = (edge_probs > 0.5).long()
 
         assert flattened_sampled_adjs.shape == edge_probs.shape
 

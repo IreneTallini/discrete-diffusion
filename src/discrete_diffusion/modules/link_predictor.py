@@ -35,7 +35,7 @@ class LinkPredictor(nn.Module):
         assert node_embeddings.shape == time_embeddings.shape
 
         # (num_nodes_in_batch, embedding_dim)
-        embeddings = node_embeddings + time_embeddings
+        embeddings = torch.cat((node_embeddings, time_embeddings), dim=-1)
 
         dot_products = embeddings @ embeddings.T
         similarities = torch.sigmoid(dot_products)
