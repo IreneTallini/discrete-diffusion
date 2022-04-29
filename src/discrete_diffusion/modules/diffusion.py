@@ -1,3 +1,4 @@
+from random import randint
 from typing import List
 
 import torch
@@ -265,7 +266,7 @@ class Diffusion(nn.Module):
             edge_probs_g = flattened_edge_probs_g.reshape((num_nodes, num_nodes))
 
             edge_index = adj_to_edge_index(adj)
-            node_features = torch.ones(num_nodes).type_as(self.Qt[0])
+            node_features = x_noisy.x[x_noisy.ptr[i] : x_noisy.ptr[i + 1]]
             graph = Data(x=node_features, edge_index=edge_index, num_nodes=num_nodes)
 
             graphs_list.append(graph)
@@ -276,7 +277,7 @@ class Diffusion(nn.Module):
         return graph_batch, edge_probs_list
 
     @torch.no_grad()
-    def sample(self):
+    def sample(self, train_data):
         """
         Generate graphs
 
@@ -290,7 +291,11 @@ class Diffusion(nn.Module):
             nx_graph = erdos_renyi_graph(n=sample_num_nodes, p=0.5)
             data = from_networkx(nx_graph)
             data.edge_index = data.edge_index.type_as(self.Qt[0]).long()
-            data.x = torch.ones(sample_num_nodes).type_as(self.Qt[0])
+
+            idx = torch.randint(len(train_data) - 1, (1,)).item()
+            while train_data[idx].num_nodes != sample_num_nodes:
+                idx = torch.randint(len(train_data) - 1, (1,)).item()
+            data.x = train_data[idx].x
 
             generated_graphs.append(data)
 

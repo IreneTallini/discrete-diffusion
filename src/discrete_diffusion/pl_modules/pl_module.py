@@ -84,7 +84,7 @@ class DiffusionPLModule(pl.LightningModule):
 
     def on_validation_epoch_end(self) -> None:
 
-        sampled_graphs, diffusion_images = self.model.sample()
+        sampled_graphs, diffusion_images = self.model.sample(self.metadata.train_data)
 
         num_samples = len(sampled_graphs)
         side = math.ceil(math.sqrt(num_samples))

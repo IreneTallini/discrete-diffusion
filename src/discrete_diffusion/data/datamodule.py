@@ -10,8 +10,6 @@ import omegaconf
 import pytorch_lightning as pl
 import torch
 from hydra.utils import instantiate
-from nn_core.common import PROJECT_ROOT
-from nn_core.nn_types import Split
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader, Dataset, random_split
 from torch.utils.data.dataloader import default_collate
@@ -19,8 +17,11 @@ from torch_geometric.data import Batch, Data
 from torch_geometric.utils import from_networkx
 from torchvision import transforms
 
+from nn_core.common import PROJECT_ROOT
+from nn_core.nn_types import Split
+
 from discrete_diffusion.data.graph_generator import GraphGenerator
-from discrete_diffusion.data.io_utils import random_split_sequence, load_data
+from discrete_diffusion.data.io_utils import load_data, random_split_sequence
 
 # from src.discrete_diffusion.utils import edge_index_to_adj
 
@@ -29,7 +30,7 @@ pylogger = logging.getLogger(__name__)
 
 
 class MetaData:
-    def __init__(self, feature_dim):
+    def __init__(self, feature_dim, train_data):
         """The data information the Lightning Module will be provided with.
         This is a "bridge" between the Lightning DataModule and the Lightning Module.
         There is no constraint on the class name nor in the stored information, as long as it exposes the
@@ -47,6 +48,7 @@ class MetaData:
             feature_dim
         """
         self.feature_dim = feature_dim
+        self.train_data = train_data
 
     def save(self, dst_path: Path) -> None:
         """Serialize the MetaData attributes into the zipped checkpoint in dst_path.
@@ -57,6 +59,7 @@ class MetaData:
 
         data = {
             "feature_dim": self.feature_dim,
+            # "train_data": self.train_data,
         }
 
         (dst_path / "data.json").write_text(json.dumps(data, indent=4, default=lambda x: x.__dict__))
@@ -75,6 +78,7 @@ class MetaData:
 
         return MetaData(
             feature_dim=data["feature_dim"],
+            # train_data=data["train_data"],
         )
 
 
@@ -128,7 +132,7 @@ class MyDataModule(pl.LightningDataModule):
         if self.train_dataset is None:
             self.setup(stage="fit")
 
-        return MetaData(feature_dim=self.feature_dim)
+        return MetaData(feature_dim=self.feature_dim, train_data=self.train_dataset)
 
     def prepare_data(self) -> None:
         # download only

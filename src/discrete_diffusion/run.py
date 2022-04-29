@@ -8,7 +8,9 @@ import omegaconf
 import pytorch_lightning as pl
 import torch_geometric.data
 import wandb
+from matplotlib import cm
 from matplotlib import pyplot as plt
+from matplotlib.cm import coolwarm
 from omegaconf import DictConfig, ListConfig
 from pytorch_lightning import Callback
 
@@ -98,18 +100,26 @@ def run(cfg: DictConfig) -> str:
     ref_list = torch_geometric.data.Batch.to_data_list(ref_batch)
     side = math.ceil(math.sqrt(cfg.nn.data.batch_size.train))
     fig, axes = plt.subplots(side, side)
+    fig_feat, axes_feat = plt.subplots(side, side)
 
     if side > 1:
         axs = axes.flatten()
+        axs_feat = axes_feat.flatten()
     else:
         axs = [axes]
+        axs_feat = [axes_feat]
 
     for i in range(cfg.nn.data.batch_size.train):
         graph = ref_list[i]
         nx_graph = torch_geometric.utils.to_networkx(graph)
         nx.draw(nx_graph, with_labels=True, ax=axs[i], node_size=1)
+        vmin = graph.x.min()
+        vmax = graph.x.max()
+        axs_feat[i].imshow(graph.x.cpu().detach(), vmin=vmin, vmax=vmax, cmap=coolwarm)
+        # axs_feat[i].colorbar(cm.ScalarMappable(cmap=coolwarm))
 
     logger.experiment.log({"Dataset Example": wandb.Image(fig)})
+    logger.experiment.log({"Dataset Features Example": wandb.Image(fig_feat)})
     plt.close()
 
     trainer = pl.Trainer(
