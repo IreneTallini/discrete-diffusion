@@ -172,6 +172,7 @@ class Diffusion(nn.Module):
         for x_start, x_t, Q_prior, Q_evidence in zip(x_start_data_list, x_t_data_list, Q_prior_batch, Q_evidence_batch):
 
             q_backward = self.compute_q_backward(Q_evidence, Q_likelihood, Q_prior, x_start, x_t)
+
             q_backward_list.append(q_backward)
 
         q_backward_all = torch.cat(q_backward_list, dim=0)
@@ -207,10 +208,14 @@ class Diffusion(nn.Module):
 
         # (n, n, 2)
         q_backward = (likelihood * prior) / evidence.unsqueeze(-1)
-        # (n*n, 2)
-        q_backward = q_backward.flatten(0, 1)
+        tril_indices = torch.tril_indices(num_nodes, num_nodes)
 
-        assert q_backward.shape == (num_nodes * num_nodes, 2)
+        # (n*(n-1)/2, 2)
+        q_backward = q_backward[tril_indices[0], tril_indices[1]]
+
+        # q_backward = q_backward.flatten(0, 1)
+
+        assert q_backward.shape == (num_nodes * (num_nodes - 1) / 2, 2)
 
         return q_backward
 
@@ -219,7 +224,7 @@ class Diffusion(nn.Module):
         q_target: torch.Tensor,
         q_approx: torch.Tensor,
     ):
-        loss = F.binary_cross_entropy(q_approx, q_target, reduction="mean")
+        loss = F.binary_cross_entropy_with_logits(q_approx, q_target, reduction="mean")
 
         return loss
 
