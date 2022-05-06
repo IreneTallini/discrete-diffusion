@@ -1,8 +1,8 @@
+import scipy.spatial as sp
 import torch
 import torch.nn.functional as F
-from torch_geometric.data import Batch
 from torch.nn import CosineSimilarity
-import scipy.spatial as sp
+from torch_geometric.data import Batch
 
 
 def compute_self_similarities(x: torch.Tensor) -> torch.Tensor:
@@ -20,11 +20,11 @@ def compute_self_similarities(x: torch.Tensor) -> torch.Tensor:
     tol = 1e-6
     # max = 1 - tol
     # min = -(1 - tol)
-    cosine_similarities = cosine_similarities.clamp(min=-(1 - tol), max=1 - tol)
+    # cosine_similarities = cosine_similarities.clamp(min=-(1 - tol), max=1 - tol)
 
-    similarities_normalized = (cosine_similarities + 1) / (2)
+    # similarities_normalized = (cosine_similarities + 1) / (2)
 
-    return similarities_normalized
+    return cosine_similarities
 
 
 def edge_index_to_adj(edge_index: torch.Tensor, num_nodes: int):

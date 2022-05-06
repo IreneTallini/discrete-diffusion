@@ -21,7 +21,7 @@ from nn_core.common import PROJECT_ROOT
 from nn_core.nn_types import Split
 
 from discrete_diffusion.data.graph_generator import GraphGenerator
-from discrete_diffusion.data.io_utils import load_data, random_split_sequence
+from discrete_diffusion.data.io_utils import load_data_irene, random_split_sequence
 
 # from src.discrete_diffusion.utils import edge_index_to_adj
 
@@ -292,7 +292,7 @@ class GraphDataModule(MyDataModule):
         self.data_dir = data_dir
         self.dataset_name = dataset_name
 
-        self.data_list, self.class_to_label_dict = load_data(
+        self.data_list, self.class_to_label_dict = load_data_irene(
             self.data_dir,
             self.dataset_name,
             feature_params=feature_params,

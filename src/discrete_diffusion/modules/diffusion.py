@@ -208,10 +208,10 @@ class Diffusion(nn.Module):
 
         # (n, n, 2)
         q_backward = (likelihood * prior) / evidence.unsqueeze(-1)
-        tril_indices = torch.tril_indices(num_nodes, num_nodes)
+        tril_indices = torch.tril_indices(num_nodes, num_nodes, offset=-1)
 
         # (n*(n-1)/2, 2)
-        q_backward = q_backward[tril_indices[0], tril_indices[1]]
+        q_backward = q_backward[tril_indices[0], tril_indices[1], :]
 
         # q_backward = q_backward.flatten(0, 1)
 
@@ -235,7 +235,8 @@ class Diffusion(nn.Module):
 
         # flattened concatenation of edge probabilities in the batch
         # (all_possible_edges_in_batch, )
-        edge_probs = self.denoise_fn(x_noisy, t)
+        edge_similarities = self.denoise_fn(x_noisy, t)
+        edge_probs = torch.sigmoid(edge_similarities)
 
         # edge_probs_expanded = torch.stack((edge_probs, 1 - edge_probs), dim=-1)
         edge_probs_expanded = torch.stack((1 - edge_probs, edge_probs), dim=-1)
@@ -252,7 +253,8 @@ class Diffusion(nn.Module):
         flat_idx = x_noisy.ptr[0]
         flattened_adj_indices = [flat_idx]
         for i in range(batch_size):
-            flat_idx = flat_idx + graph_sizes[i] ** 2
+            # flat_idx = flat_idx + graph_sizes[i] ** 2
+            flat_idx = flat_idx + graph_sizes[i] * (graph_sizes[i] - 1) // 2
             flattened_adj_indices.append(flat_idx)
 
         graphs_list: List[Data] = []
@@ -265,10 +267,17 @@ class Diffusion(nn.Module):
             # (n*n)
             flattened_adj_g = flattened_sampled_adjs[flattened_adj_indices[i] : flattened_adj_indices[i + 1]]
             # (n, n)
-            adj = flattened_adj_g.reshape((num_nodes, num_nodes))
+            adj = torch.zeros((num_nodes, num_nodes)).type_as(flattened_adj_g)
+            tril_indices = torch.tril_indices(num_nodes, num_nodes, offset=-1)
+            adj[tril_indices[0], tril_indices[1]] = flattened_adj_g
+            adj = adj + adj.T
+            # adj = flattened_adj_g.reshape((num_nodes, num_nodes))
 
             flattened_edge_probs_g = edge_probs[flattened_adj_indices[i] : flattened_adj_indices[i + 1]]
-            edge_probs_g = flattened_edge_probs_g.reshape((num_nodes, num_nodes))
+            edge_probs_g = torch.zeros((num_nodes, num_nodes)).type_as(flattened_edge_probs_g)
+            edge_probs_g[tril_indices[0], tril_indices[1]] = flattened_edge_probs_g
+            edge_probs_g = edge_probs_g + edge_probs_g.T
+            # edge_probs_g = flattened_edge_probs_g.reshape((num_nodes, num_nodes))
 
             edge_index = adj_to_edge_index(adj)
             node_features = x_noisy.x[x_noisy.ptr[i] : x_noisy.ptr[i + 1]]

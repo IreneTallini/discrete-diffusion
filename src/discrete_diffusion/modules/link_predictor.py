@@ -37,8 +37,9 @@ class LinkPredictor(nn.Module):
         # (num_nodes_in_batch, embedding_dim)
         embeddings = torch.cat((node_embeddings, time_embeddings), dim=-1)
 
-        similarities = embeddings @ embeddings.T
+        # similarities = embeddings @ embeddings.T
         # similarities = torch.sigmoid(similarities)
+        similarities = compute_self_similarities(embeddings)
 
         # mask = torch.block_diag(*[torch.ones(i, i) for i in graph_sizes]).type(torch.bool)
         mask = torch.block_diag(*[torch.triu(torch.ones(i, i), diagonal=1) for i in graph_sizes]).bool()
