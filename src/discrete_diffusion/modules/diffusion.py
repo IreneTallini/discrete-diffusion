@@ -291,7 +291,7 @@ class Diffusion(nn.Module):
         return graph_batch, edge_probs_list
 
     @torch.no_grad()
-    def sample(self, train_data):
+    def sample(self, train_data, device):
         """
         Generate graphs
 
@@ -309,7 +309,7 @@ class Diffusion(nn.Module):
             idx = torch.randint(len(train_data) - 1, (1,)).item()
             while train_data[idx].num_nodes != sample_num_nodes:
                 idx = torch.randint(len(train_data) - 1, (1,)).item()
-            data.x = train_data[idx].x
+            data.x = train_data[idx].x.to(device)
 
             generated_graphs.append(data)
 
@@ -323,9 +323,9 @@ class Diffusion(nn.Module):
         num_generated_graphs = len(self.num_nodes_samples)
 
         side = 4
-        freq = self.num_timesteps // side**2 + 1
+        freq = self.num_timesteps // (side**2 - 2)
 
-        fig_adj, axs_adj = plt.subplots(side, side)
+        fig_adj, axs_adj = plt.subplots(side, side, constrained_layout=True)
         axs_adj = axs_adj.flatten()
 
         for i in tqdm(reversed(range(0, self.num_timesteps)), desc="Sampling loop time step", total=self.num_timesteps):
@@ -334,7 +334,10 @@ class Diffusion(nn.Module):
 
             graphs_batch, edge_probs_list = self.sampling_step(graphs_batch, times)
 
-            if i % freq == 0 or i == self.num_timesteps - 1:
+            if i == self.num_timesteps - 1:
+                axs_adj[-1].imshow(edge_probs_list[0].cpu().detach(), cmap=coolwarm, vmin=0, vmax=1)
+                axs_adj[-1].set_title("noise = " + str(i))
+            elif i % freq == 0:
                 axs_adj[i // freq].imshow(edge_probs_list[0].cpu().detach(), cmap=coolwarm, vmin=0, vmax=1)
                 axs_adj[i // freq].set_title("noise = " + str(i))
 

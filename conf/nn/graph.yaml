@@ -36,7 +36,7 @@ data:
     test: 4
 
   batch_size:
-    train: 1
+    train: 16
     val: 1
     test: 1
 
@@ -49,23 +49,23 @@ module:
   model:
 
     _target_: discrete_diffusion.modules.diffusion.Diffusion
-    diffusion_speed: 0.01 #0.1 # 0.01
-    timesteps: 160 #160
-    num_nodes_samples: [4, 4]
+    diffusion_speed: 0.01
+    timesteps: 1 // ${nn.module.model.diffusion_speed}
+    num_nodes_samples: [30]
 
     denoise_fn:
       _target_: discrete_diffusion.modules.link_predictor.LinkPredictor
       feature_dim: ???
-      time_dim: 64
+      time_dim: 128
 
       node_embedder:
         _target_: discrete_diffusion.modules.node_embedder.NodeEmbedder
         feature_dim: ???
         num_mlp_layers: 2
-        embedding_dim: 64
-        hidden_dim: 64
+        embedding_dim: ${nn.module.model.denoise_fn.time_dim}
+        hidden_dim: ${nn.module.model.denoise_fn.time_dim}
         num_convs: 2
-        dropout_rate: 0.
+        dropout_rate: 0.1
         do_preprocess: false
         use_batch_norm: false
         jump_mode: none
@@ -74,33 +74,10 @@ module:
     _target_: torch.optim.Adam
     lr: 0.001
 
-#  lr_scheduler:
-#    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
-#    T_0: 10
-#    T_mult: 2
-#    eta_min: 0 # min value for the lr
-#    last_epoch: -1
-#    verbose: False
-
-# ROBA BRUTTA Added by Irene to make the code compatible with Song one
-model:
-  activation: "swish"
-  scale_by_sigma: False
-  ema_rate: 0.9999
-  normalization: 'GroupNorm'
-  nonlinearity: 'swish'
-  nf: 32 #128 #
-  ch_mult: [1, 1, 1, 1]
-  num_res_blocks: 2
-  # model.attn_resolutions = (2048,)
-  resamp_with_conv: True
-  conditional: True
-  sigma_min: 0.01
-  sigma_max: 50
-  num_scales: 1000
-  beta_min: 0.1
-  beta_max: 20.
-  dropout: 0.1
-  embedding_type: 'fourier'
-  centered: False
-  num_channels: 1
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+    T_0: 10
+    T_mult: 2
+    eta_min: 0 # min value for the lr
+    last_epoch: -1
+    verbose: False

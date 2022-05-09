@@ -24,7 +24,7 @@ monitor:
 
 callbacks:
   - _target_: pytorch_lightning.callbacks.EarlyStopping
-    patience: 10000
+    patience: 40
     verbose: False
     monitor: ${train.monitor.metric}
     mode: ${train.monitor.mode}
@@ -56,6 +56,6 @@ logging:
     mode: 'online'
     tags: ${core.tags}
 
-#  wandb_watch:
-#    log: 'all'
-#    log_freq: 100
+  wandb_watch:
+    log: 'all'
+    log_freq: 100

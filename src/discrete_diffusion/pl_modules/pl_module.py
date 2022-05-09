@@ -84,13 +84,17 @@ class DiffusionPLModule(pl.LightningModule):
 
     def on_validation_epoch_end(self) -> None:
 
-        sampled_graphs, diffusion_images = self.model.sample(self.metadata.train_data)
+        device = "cuda" if self.hparams.gpus > 0 else "cpu"
+        sampled_graphs, diffusion_images = self.model.sample(self.metadata.train_data, device)
 
         num_samples = len(sampled_graphs)
         side = math.ceil(math.sqrt(num_samples))
 
         fig, axs = plt.subplots(side, side)
-        axs = axs.flatten()
+        if side > 1:
+            axs = axs.flatten()
+        else:
+            axs = [axs]
 
         for i in range(0, num_samples):
             data = sampled_graphs[i]

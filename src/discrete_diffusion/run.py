@@ -82,7 +82,9 @@ def run(cfg: DictConfig) -> str:
 
     # Instantiate model
     pylogger.info(f"Instantiating <{cfg.nn.module['_target_']}>")
-    model: pl.LightningModule = hydra.utils.instantiate(cfg.nn.module, cfg=cfg.nn, _recursive_=False, metadata=metadata)
+    model: pl.LightningModule = hydra.utils.instantiate(
+        cfg.nn.module, cfg=cfg.nn, gpus=cfg.train.trainer.gpus, _recursive_=False, metadata=metadata
+    )
 
     # Instantiate the callbacks
     template_core: NNTemplateCore = NNTemplateCore(
@@ -99,8 +101,8 @@ def run(cfg: DictConfig) -> str:
     ref_batch = next(iter(datamodule.train_dataloader()))
     ref_list = torch_geometric.data.Batch.to_data_list(ref_batch)
     side = math.ceil(math.sqrt(cfg.nn.data.batch_size.train))
-    fig, axes = plt.subplots(side, side)
-    fig_feat, axes_feat = plt.subplots(side, side)
+    fig, axes = plt.subplots(side, side, constrained_layout=True)
+    fig_feat, axes_feat = plt.subplots(side, side, constrained_layout=True)
 
     if side > 1:
         axs = axes.flatten()
@@ -113,10 +115,12 @@ def run(cfg: DictConfig) -> str:
         graph = ref_list[i]
         nx_graph = torch_geometric.utils.to_networkx(graph)
         nx.draw(nx_graph, with_labels=True, ax=axs[i], node_size=1)
-        vmin = graph.x.min()
-        vmax = graph.x.max()
+        vmin = int(graph.x.min())
+        vmax = int(graph.x.max())
         axs_feat[i].imshow(graph.x.cpu().detach(), vmin=vmin, vmax=vmax, cmap=coolwarm)
         # axs_feat[i].colorbar(cm.ScalarMappable(cmap=coolwarm))
+    cbar = fig_feat.colorbar(cm.ScalarMappable(cmap=coolwarm), ticks=[0, 1])
+    cbar.ax.set_yticklabels([vmin, vmax])
 
     logger.experiment.log({"Dataset Example": wandb.Image(fig)})
     logger.experiment.log({"Dataset Features Example": wandb.Image(fig_feat)})
