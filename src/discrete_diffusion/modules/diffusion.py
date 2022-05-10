@@ -291,7 +291,7 @@ class Diffusion(nn.Module):
         return graph_batch, edge_probs_list
 
     @torch.no_grad()
-    def sample(self, train_data, device):
+    def sample(self, features_list, device):
         """
         Generate graphs
 
@@ -306,10 +306,10 @@ class Diffusion(nn.Module):
             data = from_networkx(nx_graph)
             data.edge_index = data.edge_index.type_as(self.Qt[0]).long()
 
-            idx = torch.randint(len(train_data) - 1, (1,)).item()
-            while train_data[idx].num_nodes != sample_num_nodes:
-                idx = torch.randint(len(train_data) - 1, (1,)).item()
-            data.x = train_data[idx].x.to(device)
+            idx = torch.randint(len(features_list) - 1, (1,)).item()
+            while len(features_list[idx]) != sample_num_nodes:
+                idx = torch.randint(len(features_list) - 1, (1,)).item()
+            data.x = features_list[idx].to(device)
 
             generated_graphs.append(data)
 

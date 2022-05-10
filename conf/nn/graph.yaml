@@ -18,13 +18,13 @@ data:
 
   datasets:
     train:
-      _target_: discrete_diffusion.data.graph_dataset.GeneratedGraphDataset
+      _target_: discrete_diffusion.data.graph_dataset.GraphDataset
 
     val:
-      _target_: discrete_diffusion.data.graph_dataset.GeneratedGraphDataset
+      _target_: discrete_diffusion.data.graph_dataset.GraphDataset
 
     test:
-      _target_: discrete_diffusion.data.graph_dataset.GeneratedGraphDataset
+      _target_: discrete_diffusion.data.graph_dataset.GraphDataset
 
 
 
@@ -49,9 +49,9 @@ module:
   model:
 
     _target_: discrete_diffusion.modules.diffusion.Diffusion
-    diffusion_speed: 0.01
-    timesteps: 1 // ${nn.module.model.diffusion_speed}
-    num_nodes_samples: [30]
+    diffusion_speed: 0.001
+    timesteps: 1000
+    num_nodes_samples: [20]
 
     denoise_fn:
       _target_: discrete_diffusion.modules.link_predictor.LinkPredictor
@@ -65,14 +65,14 @@ module:
         embedding_dim: ${nn.module.model.denoise_fn.time_dim}
         hidden_dim: ${nn.module.model.denoise_fn.time_dim}
         num_convs: 2
-        dropout_rate: 0.1
+        dropout_rate: 0.
         do_preprocess: false
         use_batch_norm: false
         jump_mode: none
 
   optimizer:
     _target_: torch.optim.Adam
-    lr: 0.001
+    lr: 0.0001
 
   lr_scheduler:
     _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts

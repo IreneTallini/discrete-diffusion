@@ -80,15 +80,17 @@ def load_data_irene(path, dataset_name, feature_params):
 
     graphs_list = []
     labels = []
+    features_list = []
     for g in graphs:
         gr = from_networkx(g)
         gr.x = gr.feature.float()
+        features_list.append(gr.x)
         delattr(gr, "feature")
         gr.y = gr.label
         delattr(gr, "label")
         labels.append(gr.y)
         graphs_list.append(gr)
-    return graphs_list, labels
+    return graphs_list, labels, features_list
 
 
 def load_data(dir_path, dataset_name, feature_params):

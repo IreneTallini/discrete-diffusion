@@ -85,7 +85,7 @@ class DiffusionPLModule(pl.LightningModule):
     def on_validation_epoch_end(self) -> None:
 
         device = "cuda" if self.hparams.gpus > 0 else "cpu"
-        sampled_graphs, diffusion_images = self.model.sample(self.metadata.train_data, device)
+        sampled_graphs, diffusion_images = self.model.sample(self.metadata.features_list, device)
 
         num_samples = len(sampled_graphs)
         side = math.ceil(math.sqrt(num_samples))

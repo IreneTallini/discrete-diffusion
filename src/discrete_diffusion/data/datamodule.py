@@ -30,7 +30,7 @@ pylogger = logging.getLogger(__name__)
 
 
 class MetaData:
-    def __init__(self, feature_dim, train_data):
+    def __init__(self, feature_dim, features_list):
         """The data information the Lightning Module will be provided with.
         This is a "bridge" between the Lightning DataModule and the Lightning Module.
         There is no constraint on the class name nor in the stored information, as long as it exposes the
@@ -48,7 +48,7 @@ class MetaData:
             feature_dim
         """
         self.feature_dim = feature_dim
-        self.train_data = train_data
+        self.features_list = features_list
 
     def save(self, dst_path: Path) -> None:
         """Serialize the MetaData attributes into the zipped checkpoint in dst_path.
@@ -59,7 +59,7 @@ class MetaData:
 
         data = {
             "feature_dim": self.feature_dim,
-            # "train_data": self.train_data,
+            "features_list": self.features_list,
         }
 
         (dst_path / "data.json").write_text(json.dumps(data, indent=4, default=lambda x: x.__dict__))
@@ -78,7 +78,7 @@ class MetaData:
 
         return MetaData(
             feature_dim=data["feature_dim"],
-            # train_data=data["train_data"],
+            features_list=data["features_list"],
         )
 
 
@@ -132,7 +132,7 @@ class MyDataModule(pl.LightningDataModule):
         if self.train_dataset is None:
             self.setup(stage="fit")
 
-        return MetaData(feature_dim=self.feature_dim, train_data=self.train_dataset)
+        return MetaData(feature_dim=self.feature_dim, features_list=self.features_list)
 
     def prepare_data(self) -> None:
         # download only
@@ -182,6 +182,7 @@ class MyDataModule(pl.LightningDataModule):
             num_workers=self.num_workers.train,
             pin_memory=self.pin_memory,
             collate_fn=self.get_collate_fn("train"),
+            multiprocessing_context="fork",
         )
 
     def get_collate_fn(self, split):
@@ -196,6 +197,7 @@ class MyDataModule(pl.LightningDataModule):
                 num_workers=self.num_workers.val,
                 pin_memory=self.pin_memory,
                 collate_fn=self.get_collate_fn("val"),
+                multiprocessing_context="fork",
             )
             for dataset in self.val_datasets
         ]
@@ -209,6 +211,7 @@ class MyDataModule(pl.LightningDataModule):
                 num_workers=self.num_workers.test,
                 pin_memory=self.pin_memory,
                 collate_fn=self.get_collate_fn("test"),
+                multiprocessing_context="fork",
             )
             for dataset in self.test_datasets
         ]
@@ -292,7 +295,7 @@ class GraphDataModule(MyDataModule):
         self.data_dir = data_dir
         self.dataset_name = dataset_name
 
-        self.data_list, self.class_to_label_dict = load_data_irene(
+        self.data_list, self.class_to_label_dict, self.features_list = load_data_irene(
             self.data_dir,
             self.dataset_name,
             feature_params=feature_params,

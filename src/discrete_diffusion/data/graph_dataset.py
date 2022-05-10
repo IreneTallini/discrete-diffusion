@@ -13,7 +13,7 @@ from torch_geometric.data import Data
 from nn_core.common import PROJECT_ROOT
 
 
-class GeneratedGraphDataset(Dataset):
+class GraphDataset(Dataset):
     def __init__(self, samples: List[Data]):
         self.samples = samples
 
