@@ -281,7 +281,7 @@ class Diffusion(nn.Module):
         flattened_adj_indices = [flat_idx]
         for i in range(batch_size):
             # flat_idx = flat_idx + graph_sizes[i] ** 2
-            flat_idx = flat_idx + graph_sizes[i] * (graph_sizes[i] - 1) // 2
+            flat_idx = flat_idx + torch.div(graph_sizes[i] * (graph_sizes[i] - 1), 2, rounding_mode="floor")
             flattened_adj_indices.append(flat_idx)
 
         graphs_list: List[Data] = []
