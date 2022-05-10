@@ -106,17 +106,28 @@ class Diffusion(nn.Module):
         # (B, 2, 2)
         Q_batch = self.Qt[random_timesteps]
 
-        data_list: List[Data] = x_start.to_data_list()
-        noisy_data_list: List[Data] = []
-
-        for b, data in enumerate(data_list):
-            transition_matrix = Q_batch[b]
-            noisy_data = self.compute_noisy_data(data, transition_matrix)
-            noisy_data_list.append(noisy_data)
-
-        x_noisy = Batch.from_data_list(noisy_data_list)
-
         assert Q_batch.shape == (batch_size, 2, 2)
+
+        # data_list: List[Data] = x_start.to_data_list()
+        # noisy_data_list: List[Data] = []
+        #
+        # for b, data in enumerate(data_list):
+        #     transition_matrix = Q_batch[b]
+        #     noisy_data = self.compute_noisy_data(data, transition_matrix)
+        #     noisy_data_list.append(noisy_data)
+
+        adj = edge_index_to_adj(x_start.edge_index, x_start.num_nodes)
+        adj_with_flip_probs = Q_batch[x_start.batch, adj, :]
+        adj_noisy_unmasked = Categorical(adj_with_flip_probs).sample().type_as(adj)
+
+        length_batches = x_start.ptr[1:] - x_start.ptr[:-1]
+        mask = torch.block_diag(*[torch.ones(l, l) for l in length_batches]).type_as(adj)
+
+        adj_noisy = adj_noisy_unmasked * mask
+        x_noisy = x_start
+        x_noisy.edge_index = adj_to_edge_index(adj_noisy)
+
+        # x_noisy = Batch.from_data_list(noisy_data_list)
 
         return x_noisy
 
@@ -165,17 +176,33 @@ class Diffusion(nn.Module):
         assert Q_likelihood.shape == (2, 2)
         assert Q_prior_batch.shape == Q_evidence_batch.shape == (batch_size, 2, 2)
 
-        x_start_data_list: List[Data] = x_start_batch.to_data_list()
-        x_t_data_list: List[Data] = x_t_batch.to_data_list()
+        adj_x_t = edge_index_to_adj(x_t_batch.edge_index, x_t_batch.num_nodes)
+        adj_x_start = edge_index_to_adj(x_start_batch.edge_index, x_start_batch.num_nodes)
 
-        q_backward_list = []
-        for x_start, x_t, Q_prior, Q_evidence in zip(x_start_data_list, x_t_data_list, Q_prior_batch, Q_evidence_batch):
+        likelihood = Q_likelihood[:, adj_x_t].permute(1, 2, 0)
 
-            q_backward = self.compute_q_backward(Q_evidence, Q_likelihood, Q_prior, x_start, x_t)
+        prior = Q_prior_batch[x_start_batch.batch, adj_x_start, :]
 
-            q_backward_list.append(q_backward)
+        evidence = Q_evidence_batch[x_start_batch.batch, adj_x_start, adj_x_t, None]
 
-        q_backward_all = torch.cat(q_backward_list, dim=0)
+        q_backward = (likelihood * prior) / evidence
+
+        length_batches = x_start_batch.ptr[1:] - x_start_batch.ptr[:-1]
+        mask = torch.block_diag(*[torch.triu(torch.ones(l, l), diagonal=1) for l in length_batches]).type(torch.bool)
+
+        q_backward_all = q_backward[mask]
+
+        # x_start_data_list: List[Data] = x_start_batch.to_data_list()
+        # x_t_data_list: List[Data] = x_t_batch.to_data_list()
+        #
+        # q_backward_list = []
+        # for x_start, x_t, Q_prior, Q_evidence in zip(x_start_data_list, x_t_data_list, Q_prior_batch, Q_evidence_batch):
+        #
+        #     q_backward = self.compute_q_backward(Q_evidence, Q_likelihood, Q_prior, x_start, x_t)
+        #
+        #     q_backward_list.append(q_backward)
+        #
+        # q_backward_all = torch.cat(q_backward_list, dim=0)
 
         return q_backward_all
 

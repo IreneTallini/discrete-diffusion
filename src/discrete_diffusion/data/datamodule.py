@@ -182,7 +182,7 @@ class MyDataModule(pl.LightningDataModule):
             num_workers=self.num_workers.train,
             pin_memory=self.pin_memory,
             collate_fn=self.get_collate_fn("train"),
-            multiprocessing_context="fork",
+            # multiprocessing_context="fork",
         )
 
     def get_collate_fn(self, split):
@@ -197,7 +197,7 @@ class MyDataModule(pl.LightningDataModule):
                 num_workers=self.num_workers.val,
                 pin_memory=self.pin_memory,
                 collate_fn=self.get_collate_fn("val"),
-                multiprocessing_context="fork",
+                # multiprocessing_context="fork",
             )
             for dataset in self.val_datasets
         ]
@@ -211,7 +211,7 @@ class MyDataModule(pl.LightningDataModule):
                 num_workers=self.num_workers.test,
                 pin_memory=self.pin_memory,
                 collate_fn=self.get_collate_fn("test"),
-                multiprocessing_context="fork",
+                # multiprocessing_context="fork",
             )
             for dataset in self.test_datasets
         ]
