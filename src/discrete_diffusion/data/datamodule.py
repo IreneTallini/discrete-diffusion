@@ -223,18 +223,18 @@ class MyDataModule(pl.LightningDataModule):
 class SyntheticGraphDataModule(MyDataModule):
     def __init__(
         self,
-        graph_generator: DictConfig,
         datasets: DictConfig,
         num_workers: DictConfig,
         batch_size: DictConfig,
         gpus: Optional[Union[List[int], str, int]],
         val_percentage: float,
+        graph_generator: DictConfig,
     ):
         super().__init__(datasets, num_workers, batch_size, gpus, val_percentage)
 
         self.graph_generator: GraphGenerator = instantiate(config=graph_generator, _recursive_=False)
 
-        generated_nx_graphs: List[nx.Graph] = self.graph_generator.generate_data()
+        generated_nx_graphs, self.features_list = self.graph_generator.generate_data()
 
         self.generated_graphs: List[Data] = [from_networkx(nx_graph) for nx_graph in generated_nx_graphs]
 

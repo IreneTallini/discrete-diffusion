@@ -1,4 +1,3 @@
-from random import randint
 from typing import List
 
 import torch
@@ -25,13 +24,13 @@ class Diffusion(nn.Module):
         feature_dim: int,
         diffusion_speed: float,
         timesteps: int,
-        num_nodes_samples: List[int],
+        threshold_sample: float,
     ):
         super().__init__()
 
         self.num_timesteps = timesteps
         self.diffusion_speed = diffusion_speed
-        self.num_nodes_samples = num_nodes_samples
+        self.threshold_sample = threshold_sample
 
         self.denoise_fn = instantiate(
             denoise_fn, node_embedder=denoise_fn.node_embedder, feature_dim=feature_dim, _recursive_=False
@@ -108,14 +107,6 @@ class Diffusion(nn.Module):
 
         assert Q_batch.shape == (batch_size, 2, 2)
 
-        # data_list: List[Data] = x_start.to_data_list()
-        # noisy_data_list: List[Data] = []
-        #
-        # for b, data in enumerate(data_list):
-        #     transition_matrix = Q_batch[b]
-        #     noisy_data = self.compute_noisy_data(data, transition_matrix)
-        #     noisy_data_list.append(noisy_data)
-
         adj = edge_index_to_adj(x_start.edge_index, x_start.num_nodes)
         adj_with_flip_probs = Q_batch[x_start.batch, adj, :]
         adj_noisy_unmasked = Categorical(adj_with_flip_probs).sample().type_as(adj)
@@ -127,33 +118,7 @@ class Diffusion(nn.Module):
         x_noisy = x_start
         x_noisy.edge_index = adj_to_edge_index(adj_noisy)
 
-        # x_noisy = Batch.from_data_list(noisy_data_list)
-
         return x_noisy
-
-    def compute_noisy_data(self, data: Data, transition_matrix: torch.Tensor) -> Data:
-        """
-        Compute a noisy adjacency matrix in accordance to the forward process
-
-        :param data:
-        :param transition_matrix: (2, 2) matrix of transition probabilities
-        """
-        adj = edge_index_to_adj(data.edge_index, data.num_nodes)
-
-        # (n, n, 2)
-        adj_with_flip_probs = transition_matrix[adj]
-
-        # (n, n)
-        x_noisy = Categorical(adj_with_flip_probs).sample().type_as(adj)
-
-        new_edge_index = adj_to_edge_index(x_noisy)
-
-        noisy_data = Data(edge_index=new_edge_index, num_nodes=data.num_nodes, x=data.x)
-
-        assert adj_with_flip_probs.shape == (data.num_nodes, data.num_nodes, 2)
-        assert x_noisy.shape == (data.num_nodes, data.num_nodes)
-
-        return noisy_data
 
     def backward_diffusion(self, x_start_batch: Batch, t_batch: torch.Tensor, x_t_batch: Batch) -> torch.Tensor:
         """
@@ -192,62 +157,10 @@ class Diffusion(nn.Module):
 
         q_backward_all = q_backward[mask]
 
-        # x_start_data_list: List[Data] = x_start_batch.to_data_list()
-        # x_t_data_list: List[Data] = x_t_batch.to_data_list()
-        #
-        # q_backward_list = []
-        # for x_start, x_t, Q_prior, Q_evidence in zip(x_start_data_list, x_t_data_list, Q_prior_batch, Q_evidence_batch):
-        #
-        #     q_backward = self.compute_q_backward(Q_evidence, Q_likelihood, Q_prior, x_start, x_t)
-        #
-        #     q_backward_list.append(q_backward)
-        #
-        # q_backward_all = torch.cat(q_backward_list, dim=0)
-
         return q_backward_all
 
-    def compute_q_backward(
-        self, Q_evidence: torch.Tensor, Q_likelihood: torch.Tensor, Q_prior: torch.Tensor, x_start: Data, x_t: Data
-    ) -> torch.Tensor:
-        """
-        :param Q_evidence:
-        :param Q_likelihood:
-        :param Q_prior:
-        :param x_start:
-        :param x_t:
-
-        :return:
-        """
-        assert x_t.num_nodes == x_start.num_nodes
-        num_nodes = x_t.num_nodes
-
-        # (n, n)
-        adj_x_t = edge_index_to_adj(x_t.edge_index, num_nodes)
-        # (n, n)
-        adj_x_start = edge_index_to_adj(x_start.edge_index, num_nodes)
-
-        # (n, n, 2)
-        likelihood = Q_likelihood[adj_x_t]
-        # (n, n, 2)
-        prior = Q_prior[adj_x_start]
-        # (n, n)
-        evidence = Q_evidence[adj_x_start, adj_x_t]
-
-        # (n, n, 2)
-        q_backward = (likelihood * prior) / evidence.unsqueeze(-1)
-        tril_indices = torch.tril_indices(num_nodes, num_nodes, offset=-1)
-
-        # (n*(n-1)/2, 2)
-        q_backward = q_backward[tril_indices[0], tril_indices[1], :]
-
-        # q_backward = q_backward.flatten(0, 1)
-
-        assert q_backward.shape == (num_nodes * (num_nodes - 1) / 2, 2)
-
-        return q_backward
-
+    @staticmethod
     def compute_loss(
-        self,
         q_target: torch.Tensor,
         q_approx: torch.Tensor,
     ):
@@ -265,14 +178,13 @@ class Diffusion(nn.Module):
         edge_similarities = self.denoise_fn(x_noisy, t)
         edge_probs = torch.sigmoid(edge_similarities)
 
-        # edge_probs_expanded = torch.stack((edge_probs, 1 - edge_probs), dim=-1)
         edge_probs_expanded = torch.stack((1 - edge_probs, edge_probs), dim=-1)
 
         if t[0] != 0:
             # (all_possible_edges_in_batch, )
             flattened_sampled_adjs = Categorical(probs=edge_probs_expanded).sample().long()
         else:
-            flattened_sampled_adjs = (edge_probs > 0.5).long()
+            flattened_sampled_adjs = (edge_probs > self.threshold_sample).long()
 
         assert flattened_sampled_adjs.shape == edge_probs.shape
 
@@ -280,7 +192,6 @@ class Diffusion(nn.Module):
         flat_idx = x_noisy.ptr[0]
         flattened_adj_indices = [flat_idx]
         for i in range(batch_size):
-            # flat_idx = flat_idx + graph_sizes[i] ** 2
             flat_idx = flat_idx + torch.div(graph_sizes[i] * (graph_sizes[i] - 1), 2, rounding_mode="floor")
             flattened_adj_indices.append(flat_idx)
 
@@ -298,13 +209,11 @@ class Diffusion(nn.Module):
             tril_indices = torch.tril_indices(num_nodes, num_nodes, offset=-1)
             adj[tril_indices[0], tril_indices[1]] = flattened_adj_g
             adj = adj + adj.T
-            # adj = flattened_adj_g.reshape((num_nodes, num_nodes))
 
             flattened_edge_probs_g = edge_probs[flattened_adj_indices[i] : flattened_adj_indices[i + 1]]
             edge_probs_g = torch.zeros((num_nodes, num_nodes)).type_as(flattened_edge_probs_g)
             edge_probs_g[tril_indices[0], tril_indices[1]] = flattened_edge_probs_g
             edge_probs_g = edge_probs_g + edge_probs_g.T
-            # edge_probs_g = flattened_edge_probs_g.reshape((num_nodes, num_nodes))
 
             edge_index = adj_to_edge_index(adj)
             node_features = x_noisy.x[x_noisy.ptr[i] : x_noisy.ptr[i + 1]]
@@ -318,7 +227,7 @@ class Diffusion(nn.Module):
         return graph_batch, edge_probs_list
 
     @torch.no_grad()
-    def sample(self, features_list, device):
+    def sample(self, features_list, device, num_nodes_samples):
         """
         Generate graphs
 
@@ -327,14 +236,14 @@ class Diffusion(nn.Module):
 
         generated_graphs: List[Data] = []
 
-        for sample_num_nodes in self.num_nodes_samples:
+        for num_nodes in num_nodes_samples:
 
-            nx_graph = erdos_renyi_graph(n=sample_num_nodes, p=0.5)
+            nx_graph = erdos_renyi_graph(n=num_nodes, p=0.5)
             data = from_networkx(nx_graph)
             data.edge_index = data.edge_index.type_as(self.Qt[0]).long()
 
             idx = torch.randint(len(features_list) - 1, (1,)).item()
-            while len(features_list[idx]) != sample_num_nodes:
+            while len(features_list[idx]) != num_nodes:
                 idx = torch.randint(len(features_list) - 1, (1,)).item()
             data.x = features_list[idx].to(device)
 
@@ -347,7 +256,7 @@ class Diffusion(nn.Module):
         return graphs_batch.to_data_list(), fig_adj
 
     def sample_and_plot(self, graphs_batch):
-        num_generated_graphs = len(self.num_nodes_samples)
+        num_generated_graphs = graphs_batch.num_graphs
 
         side = 4
         freq = self.num_timesteps // (side**2 - 2)

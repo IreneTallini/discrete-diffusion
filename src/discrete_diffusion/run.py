@@ -98,32 +98,11 @@ def run(cfg: DictConfig) -> str:
     logger: NNLogger = NNLogger(logging_cfg=cfg.train.logging, cfg=cfg, resume_id=template_core.resume_id)
     pylogger.info("Instantiating the <Trainer>")
 
+    # Plot Dataset Example
     ref_batch = next(iter(datamodule.train_dataloader()))
     ref_list = torch_geometric.data.Batch.to_data_list(ref_batch)
-    side = math.ceil(math.sqrt(cfg.nn.data.batch_size.train))
-    fig, axes = plt.subplots(side, side, constrained_layout=True)
-    fig_feat, axes_feat = plt.subplots(side, side, constrained_layout=True)
-
-    if side > 1:
-        axs = axes.flatten()
-        axs_feat = axes_feat.flatten()
-    else:
-        axs = [axes]
-        axs_feat = [axes_feat]
-
-    for i in range(cfg.nn.data.batch_size.train):
-        graph = ref_list[i]
-        nx_graph = torch_geometric.utils.to_networkx(graph)
-        nx.draw(nx_graph, with_labels=True, ax=axs[i], node_size=1)
-        vmin = int(graph.x.min())
-        vmax = int(graph.x.max())
-        axs_feat[i].imshow(graph.x.cpu().detach(), vmin=vmin, vmax=vmax, cmap=coolwarm)
-        # axs_feat[i].colorbar(cm.ScalarMappable(cmap=coolwarm))
-    cbar = fig_feat.colorbar(cm.ScalarMappable(cmap=coolwarm), ticks=[0, 1])
-    cbar.ax.set_yticklabels([vmin, vmax])
-
-    logger.experiment.log({"Dataset Example": wandb.Image(fig)})
-    logger.experiment.log({"Dataset Features Example": wandb.Image(fig_feat)})
+    fig = model.generate_sampled_graphs_figures(ref_list)
+    logger.log_image(key="Dataset Example", images=[fig])
     plt.close()
 
     trainer = pl.Trainer(
@@ -132,6 +111,7 @@ def run(cfg: DictConfig) -> str:
         logger=logger,
         callbacks=callbacks,
         **cfg.train.trainer,
+        check_val_every_n_epoch=10,
     )
 
     pylogger.info("Starting training!")

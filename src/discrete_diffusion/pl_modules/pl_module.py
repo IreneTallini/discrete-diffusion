@@ -1,21 +1,17 @@
 import logging
 import math
-from typing import Any, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, List, Mapping, Optional, Sequence, Tuple, Union
 
 import hydra
 import matplotlib.pyplot as plt
 import networkx as nx
 import omegaconf
-import plotly.graph_objects as go
 import pytorch_lightning as pl
 import torch
-
-# import torch.nn.functional as F
-# import torchmetrics
 import torch_geometric.utils
-import wandb
 from omegaconf import DictConfig
 from torch.optim import Optimizer
+from torch_geometric.data import Data
 
 from nn_core.common import PROJECT_ROOT
 from nn_core.model_logging import NNLogger
@@ -39,10 +35,6 @@ class DiffusionPLModule(pl.LightningModule):
         self.metadata = metadata
 
         self.model = hydra.utils.instantiate(model, feature_dim=metadata.feature_dim, _recursive_=False)
-
-        # denoise_fn = Unet(dim=64, dim_mults=(1, 4), channels=1, out_dim=3)
-        # denoise_fn = GraphDDPM(config=kwargs["cfg"])
-        # self.model = Diffusion(denoise_fn=denoise_fn, image_size=28, loss_type="kl_div", timesteps=2000)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Method for the forward pass.
@@ -73,6 +65,7 @@ class DiffusionPLModule(pl.LightningModule):
 
     def validation_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
         step_out = self.step(batch)
+        self.val_batch_size = batch.num_graphs
 
         self.log_dict(
             {"loss/val": step_out["loss"].cpu().detach()},
@@ -84,13 +77,43 @@ class DiffusionPLModule(pl.LightningModule):
 
     def on_validation_epoch_end(self) -> None:
 
-        device = "cuda" if self.hparams.gpus > 0 else "cpu"
-        sampled_graphs, diffusion_images = self.model.sample(self.metadata.features_list, device)
+        num_nodes_samples = [20] * self.val_batch_size
+        sampled_graphs, diffusion_images = self.sample_from_model(num_nodes_samples)
 
+        fig = self.generate_sampled_graphs_figures(sampled_graphs)
+
+        self.logger.log_image(key="Sampled graphs/val", images=[fig])
+        self.logger.log_image(key="Adjacency matrices/val", images=[diffusion_images])
+
+        plt.close(fig)
+        plt.close(diffusion_images)
+
+    def test_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
+        step_out = self.step(batch)
+
+        self.test_batch_size = batch.num_graphs
+
+        self.log_dict(
+            {
+                "loss/test": step_out["loss"].cpu().detach(),
+            },
+        )
+
+        return step_out
+
+    def on_test_epoch_end(self) -> None:
+        num_nodes_samples = [20] * self.test_batch_size
+
+        sampled_graphs, _ = self.sample_from_model(num_nodes_samples)
+        fig = self.generate_sampled_graphs_figures(sampled_graphs)
+        self.logger.log_image(key="Sampled graphs/test", images=[fig])
+
+    @staticmethod
+    def generate_sampled_graphs_figures(sampled_graphs: List[Data]) -> plt.Figure:
         num_samples = len(sampled_graphs)
         side = math.ceil(math.sqrt(num_samples))
 
-        fig, axs = plt.subplots(side, side)
+        fig, axs = plt.subplots(side, side, constrained_layout=True)
         if side > 1:
             axs = axs.flatten()
         else:
@@ -99,19 +122,16 @@ class DiffusionPLModule(pl.LightningModule):
         for i in range(0, num_samples):
             data = sampled_graphs[i]
             G = torch_geometric.utils.to_networkx(data)
-            nx.draw(G, with_labels=True, ax=axs[i])
+            nx.draw(G, with_labels=True, ax=axs[i], node_size=0.1)
 
-        wandb.log(data={"Sampled graphs": wandb.Image(fig)})
-        wandb.log(data={"Adjacency matrices": wandb.Image(diffusion_images)})
+        return fig
 
-    def test_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
-        step_out = self.step(batch)
-
-        self.log_dict(
-            {"loss/test": step_out["loss"].cpu().detach()},
+    def sample_from_model(self, num_nodes_samples):
+        device = "cuda" if self.hparams.gpus > 0 else "cpu"
+        sampled_graphs, diffusion_images = self.model.sample(
+            self.metadata.features_list, device=device, num_nodes_samples=num_nodes_samples
         )
-
-        return step_out
+        return sampled_graphs, diffusion_images
 
     def configure_optimizers(
         self,

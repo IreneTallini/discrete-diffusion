@@ -3,18 +3,9 @@ defaults:
   - _self_
 
 data:
-  _target_: discrete_diffusion.data.datamodule.GraphDataModule
+  _target_: discrete_diffusion.data.datamodule.SyntheticGraphDataModule
 
-  dataset_name: ENZYMES
-  data_dir: ${oc.env:PROJECT_ROOT}/data/${nn.data.dataset_name}
-
-  feature_params:
-    features_to_consider:
-      - degree
-      - tags
-    #      - num_cycles
-
-    max_considered_cycle_len: 4
+  graph_generator: ${nn.graph_generator}
 
   datasets:
     train:
@@ -35,8 +26,8 @@ data:
 
   batch_size:
     train: 16
-    val: 4
-    test: 4
+    val: 1
+    test: 1
 
   val_percentage: 0.1
 

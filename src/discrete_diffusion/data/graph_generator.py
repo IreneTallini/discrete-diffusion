@@ -25,6 +25,7 @@ class GraphGenerator:
         :return:
         """
         generated_graphs = []
+        features_list = []
 
         for i in range(self.num_samples):
             params = {}
@@ -39,9 +40,10 @@ class GraphGenerator:
                 graph.nodes[i]["x"] = 1.0
 
             generated_graphs.append(graph)
+            features_list.append(torch.ones((graph.number_of_nodes(), 1)))
 
             if save_path:
                 with open(f"{save_path}/{self.graph_type}_{i}.torch", "wb") as f:
                     torch.save(obj=graph, f=f)
 
-        return generated_graphs
+        return generated_graphs, features_list
