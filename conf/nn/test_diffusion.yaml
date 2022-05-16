@@ -1,0 +1,59 @@
+defaults:
+  - graph_generator: balanced_tree
+  - _self_
+
+data:
+  _target_: discrete_diffusion.data.datamodule.SyntheticGraphDataModule
+
+  graph_generator: ${nn.graph_generator}
+
+  datasets:
+    train:
+      _target_: discrete_diffusion.data.graph_dataset.GraphDataset
+
+    val:
+      _target_: discrete_diffusion.data.graph_dataset.GraphDataset
+
+    test:
+      _target_: discrete_diffusion.data.graph_dataset.GraphDataset
+
+  gpus: ${train.trainer.gpus}
+
+  num_workers:
+    train: 8
+    val: 4
+    test: 4
+
+  batch_size:
+    train: 1
+    val: 1
+    test: 1
+
+  val_percentage: 0.1
+
+
+module:
+  _target_: discrete_diffusion.pl_modules.pl_module.GroundTruthDiffusionPLModule
+  batch_size: ${nn.data.batch_size}
+  type_num_nodes_samples: -1 #-1 random, n > 0 fix
+  model:
+    _target_: discrete_diffusion.modules.diffusion.GroundTruthDiffusion
+    diffusion_speed: 0.001
+    timesteps: 2
+    threshold_sample: 0.5
+    denoise_fn:
+      _target_: discrete_diffusion.modules.ground_truth_backward.GroundTruthBackward
+      ref_graph: ???
+      Qt: ???
+
+  optimizer:
+    _target_: torch.optim.Adam
+    lr: 0.0001
+
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+    T_0: 10
+    T_mult: 2
+    eta_min: 0 # min value for the lr
+    last_epoch: -1
+    verbose: False

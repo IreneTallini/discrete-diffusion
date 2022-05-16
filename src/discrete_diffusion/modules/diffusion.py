@@ -280,3 +280,31 @@ class Diffusion(nn.Module):
         fig_adj.colorbar(cm.ScalarMappable(cmap=coolwarm))
 
         return graphs_batch, fig_adj
+
+
+class GroundTruthDiffusion(Diffusion):
+    def __init__(
+        self,
+        denoise_fn: DictConfig,
+        feature_dim: int,
+        diffusion_speed: float,
+        timesteps: int,
+        threshold_sample: float,
+        ref_graph: Data,
+    ):
+        super(Diffusion, self).__init__()
+
+        self.num_timesteps = timesteps
+        self.diffusion_speed = diffusion_speed
+        self.threshold_sample = threshold_sample
+
+        Qt = self.construct_transition_matrices()
+        self.denoise_fn = instantiate(denoise_fn, ref_graph=ref_graph, Qt=Qt, _recursive_=False)
+
+        self.register_buffer("Qt", Qt)
+        self.dummy_par = nn.Linear(1, 1)
+
+    def forward(self, x_start: Batch, *args, **kwargs):
+
+        dummy_loss = F.mse_loss(self.dummy_par(torch.ones((1,)).type_as(self.Qt)), torch.zeros((1,)).type_as(self.Qt))
+        return dummy_loss

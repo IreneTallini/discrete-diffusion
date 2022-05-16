@@ -30,7 +30,7 @@ pylogger = logging.getLogger(__name__)
 
 
 class MetaData:
-    def __init__(self, feature_dim, features_list):
+    def __init__(self, feature_dim, features_list, ref_graph):
         """The data information the Lightning Module will be provided with.
         This is a "bridge" between the Lightning DataModule and the Lightning Module.
         There is no constraint on the class name nor in the stored information, as long as it exposes the
@@ -49,6 +49,7 @@ class MetaData:
         """
         self.feature_dim = feature_dim
         self.features_list = features_list
+        self.ref_graph = ref_graph
 
     def save(self, dst_path: Path) -> None:
         """Serialize the MetaData attributes into the zipped checkpoint in dst_path.
@@ -60,6 +61,7 @@ class MetaData:
         data = {
             "feature_dim": self.feature_dim,
             "features_list": self.features_list,
+            "ref_graph": self.ref_graph,
         }
 
         (dst_path / "data.json").write_text(json.dumps(data, indent=4, default=lambda x: x.__dict__))
@@ -79,6 +81,7 @@ class MetaData:
         return MetaData(
             feature_dim=data["feature_dim"],
             features_list=data["features_list"],
+            ref_graph=data["ref_graph"],
         )
 
 
@@ -132,7 +135,7 @@ class MyDataModule(pl.LightningDataModule):
         if self.train_dataset is None:
             self.setup(stage="fit")
 
-        return MetaData(feature_dim=self.feature_dim, features_list=self.features_list)
+        return MetaData(feature_dim=self.feature_dim, features_list=self.features_list, ref_graph=self.ref_graph)
 
     def prepare_data(self) -> None:
         # download only
@@ -240,6 +243,7 @@ class SyntheticGraphDataModule(MyDataModule):
 
         ref_graph = self.generated_graphs[0]
         self.feature_dim = ref_graph.x.shape[-1] if len(ref_graph.x.shape) > 1 else 1
+        self.ref_graph = ref_graph
 
     def setup(self, stage: Optional[str] = None):
 
@@ -303,6 +307,7 @@ class GraphDataModule(MyDataModule):
 
         ref_data = self.data_list[0]
         self.feature_dim = ref_data.x.shape[-1] if len(ref_data.x.shape) > 1 else 1
+        self.ref_graph = ref_data
 
     def setup(self, stage: Optional[str] = None):
 
