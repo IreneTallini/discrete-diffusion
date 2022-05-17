@@ -116,7 +116,7 @@ class TemplatePLModule(pl.LightningModule):
 
 class DiffusionPLModule(TemplatePLModule):
     def __init__(self, model: DictConfig, metadata: Optional[MetaData] = None, *args, **kwargs) -> None:
-        super().__init__(model, metadata, *args, **kwargs)
+        super().__init__(model, metadata=metadata, *args, **kwargs)
 
         num_nodes_list = torch.tensor([len(feature) for feature in self.metadata.features_list])
         if self.hparams.type_num_nodes_samples == -1:
@@ -174,9 +174,8 @@ class DiffusionPLModule(TemplatePLModule):
         return fig, fig_adj
 
     def sample_from_model(self, num_nodes_samples):
-        device = "cuda" if self.hparams.gpus > 0 else "cpu"
         sampled_graphs, diffusion_images = self.model.sample(
-            self.metadata.features_list, device=device, num_nodes_samples=num_nodes_samples
+            self.metadata.features_list, num_nodes_samples=num_nodes_samples
         )
         return sampled_graphs, diffusion_images
 
@@ -185,8 +184,9 @@ class GroundTruthDiffusionPLModule(DiffusionPLModule):
     logger: NNLogger
 
     def instantiate_model(self, model, metadata):
+        self.register_buffer("ref_graph", metadata.ref_graph)
         inst_model = hydra.utils.instantiate(
-            model, feature_dim=metadata.feature_dim, ref_graph=metadata.ref_graph, _recursive_=False
+            model, feature_dim=metadata.feature_dim, ref_graph=self.ref_graph, _recursive_=False
         )
         return inst_model
 

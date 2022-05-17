@@ -227,7 +227,7 @@ class Diffusion(nn.Module):
         return graph_batch, edge_probs_list
 
     @torch.no_grad()
-    def sample(self, features_list, device, num_nodes_samples):
+    def sample(self, features_list, num_nodes_samples):
         """
         Generate graphs
 
@@ -238,22 +238,26 @@ class Diffusion(nn.Module):
 
         for num_nodes in num_nodes_samples:
 
-            nx_graph = erdos_renyi_graph(n=num_nodes, p=0.5)
-            data = from_networkx(nx_graph)
-            data.edge_index = data.edge_index.type_as(self.Qt[0]).long()
+            graph = self.generate_noisy_graph(num_nodes)
 
             idx = torch.randint(len(features_list) - 1, (1,)).item()
             while len(features_list[idx]) != num_nodes:
                 idx = torch.randint(len(features_list) - 1, (1,)).item()
-            data.x = features_list[idx].to(device)
+            graph.x = features_list[idx].type_as(self.Qt)
 
-            generated_graphs.append(data)
+            generated_graphs.append(graph)
 
         graphs_batch = Batch.from_data_list(generated_graphs)
 
         graphs_batch, fig_adj = self.sample_and_plot(graphs_batch)
 
         return graphs_batch.to_data_list(), fig_adj
+
+    def generate_noisy_graph(self, num_nodes):
+        nx_graph = erdos_renyi_graph(n=num_nodes, p=0.5)
+        graph = from_networkx(nx_graph)
+        graph.edge_index = graph.edge_index.type_as(self.Qt[0]).long()
+        return graph
 
     def sample_and_plot(self, graphs_batch):
         num_generated_graphs = graphs_batch.num_graphs
@@ -300,6 +304,7 @@ class GroundTruthDiffusion(Diffusion):
 
         Qt = self.construct_transition_matrices()
         self.denoise_fn = instantiate(denoise_fn, ref_graph=ref_graph, Qt=Qt, _recursive_=False)
+        self.ref_graph = ref_graph
 
         self.register_buffer("Qt", Qt)
         self.dummy_par = nn.Linear(1, 1)
@@ -308,3 +313,9 @@ class GroundTruthDiffusion(Diffusion):
 
         dummy_loss = F.mse_loss(self.dummy_par(torch.ones((1,)).type_as(self.Qt)), torch.zeros((1,)).type_as(self.Qt))
         return dummy_loss
+
+    def generate_noisy_graph(self, num_nodes):
+        ref_batch = Batch.from_data_list([self.ref_graph])
+        t = torch.tensor([self.num_timesteps]).type_as(self.ref_graph.edge_index)
+        noisy_graph = self.forward_diffusion(ref_batch, t)
+        return noisy_graph

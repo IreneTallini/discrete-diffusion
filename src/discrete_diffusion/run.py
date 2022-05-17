@@ -96,8 +96,8 @@ def run(cfg: DictConfig) -> str:
     storage_dir: str = cfg.core.storage_dir
 
     logger: NNLogger = NNLogger(logging_cfg=cfg.train.logging, cfg=cfg, resume_id=template_core.resume_id)
-    pylogger.info("Instantiating the <Trainer>")
 
+    pylogger.info("Logging Reference Dataset")
     # Plot Dataset Example
     ref_batch = next(iter(datamodule.train_dataloader()))
     ref_list = torch_geometric.data.Batch.to_data_list(ref_batch)
@@ -106,6 +106,7 @@ def run(cfg: DictConfig) -> str:
     logger.log_image(key="Dataset Example Adj", images=[fig_adj])
     plt.close()
 
+    pylogger.info("Instantiating the <Trainer>")
     trainer = pl.Trainer(
         default_root_dir=storage_dir,
         plugins=[NNCheckpointIO(jailing_dir=logger.run_dir)],
