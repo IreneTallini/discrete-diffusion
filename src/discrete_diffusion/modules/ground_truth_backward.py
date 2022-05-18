@@ -1,16 +1,19 @@
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 from omegaconf import DictConfig
 from torch_geometric.data import Batch, Data
 
-from discrete_diffusion.utils import edge_index_to_adj
+from discrete_diffusion.utils import edge_index_to_adj, get_data_from_edge_index
 
 
 class GroundTruthBackward(nn.Module):
-    def __init__(self, ref_graph: Data, Qt: torch.Tensor):
+    def __init__(self, ref_graph_edges: torch.Tensor, ref_graph_feat: torch.Tensor, Qt: torch.Tensor):
         super().__init__()
-        self.ref_batch = Batch.from_data_list([ref_graph])
-        self.Qt = Qt
+
+        self.register_buffer("ref_graph_edges", ref_graph_edges)
+        self.register_buffer("ref_graph_feat", ref_graph_feat)
+        self.register_buffer("Qt", Qt)
 
     def forward(self, x: Batch, t: torch.Tensor) -> torch.Tensor:
         """
@@ -20,8 +23,10 @@ class GroundTruthBackward(nn.Module):
 
         :return: tensor (all_possible_edges_batch, )
         """
+        ref_graph = get_data_from_edge_index(self.ref_graph_edges, self.ref_graph_feat)
+        ref_batch = Batch.from_data_list([ref_graph])
 
-        q_backward_all = self.backward_diffusion(x_start_batch=self.ref_batch, t_batch=t, x_t_batch=x)
+        q_backward_all = self.backward_diffusion(x_start_batch=ref_batch, t_batch=t, x_t_batch=x)
         return q_backward_all[:, 1]
 
     def backward_diffusion(self, x_start_batch: Batch, t_batch: torch.Tensor, x_t_batch: Batch) -> torch.Tensor:
@@ -38,7 +43,7 @@ class GroundTruthBackward(nn.Module):
         t_batch = t_batch.long()
 
         # (2, 2)
-        Q_likelihood = self.Qt[0]
+        Q_likelihood = self.Qt[1]
         # (B, 2, 2)
         Q_prior_batch = self.Qt[t_batch - 1]
         Q_evidence_batch = self.Qt[t_batch]

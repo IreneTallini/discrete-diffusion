@@ -18,7 +18,7 @@ from nn_core.common import PROJECT_ROOT
 from nn_core.model_logging import NNLogger
 
 from discrete_diffusion.data.datamodule import MetaData
-from discrete_diffusion.utils import edge_index_to_adj
+from discrete_diffusion.utils import edge_index_to_adj, generate_sampled_graphs_figures
 
 pylogger = logging.getLogger(__name__)
 
@@ -128,50 +128,28 @@ class DiffusionPLModule(TemplatePLModule):
             raise AttributeError("type_num_nodes_samples should be -1 (random choice) or n > 0")
 
     def on_validation_epoch_end(self) -> None:
-
         sampled_graphs, diffusion_images = self.sample_from_model(
             [self.num_nodes_samples] * self.hparams.batch_size.val
         )
 
-        fig, fig_adj = self.generate_sampled_graphs_figures(sampled_graphs)
+        fig, fig_adj = generate_sampled_graphs_figures(sampled_graphs)
 
         if type(self.logger) != DummyLogger:
             self.logger.log_image(key="Sampled graphs/val", images=[fig])
-            self.logger.log_image(key="Final adj matrices sampled graphs/val", images=[fig_adj])
-            self.logger.log_image(key="Adjacency matrices/val", images=[diffusion_images])
+            self.logger.log_image(key="Sampled adj/val", images=[fig_adj])
+            self.logger.log_image(
+                key="Adjacency matrices sampling process for first graph in batch/val", images=[diffusion_images]
+            )
 
         plt.close(fig)
         plt.close(diffusion_images)
 
     def on_test_epoch_end(self) -> None:
-
         sampled_graphs, _ = self.sample_from_model([self.num_nodes_samples] * self.hparams.batch_size.test)
-        fig, fig_adj = self.generate_sampled_graphs_figures(sampled_graphs)
+        fig, fig_adj = generate_sampled_graphs_figures(sampled_graphs)
         if type(self.logger) != DummyLogger:
             self.logger.log_image(key="Sampled graphs/test", images=[fig])
             self.logger.log_image(key="Sampled adj/test", images=[fig_adj])
-
-    @staticmethod
-    def generate_sampled_graphs_figures(sampled_graphs: List[Data]) -> (plt.Figure, plt.Figure):
-        num_samples = len(sampled_graphs)
-        side = math.ceil(math.sqrt(num_samples))
-
-        fig, axs = plt.subplots(side, side, constrained_layout=True)
-        fig_adj, axs_adj = plt.subplots(side, side, constrained_layout=True)
-        if side > 1:
-            axs = axs.flatten()
-            axs_adj = axs_adj.flatten()
-        else:
-            axs = [axs]
-            axs_adj = [axs_adj]
-
-        for i in range(0, num_samples):
-            data = sampled_graphs[i]
-            G = torch_geometric.utils.to_networkx(data)
-            nx.draw(G, with_labels=True, ax=axs[i], node_size=0.1)
-            axs_adj[i].imshow(edge_index_to_adj(data.edge_index, data.num_nodes))
-
-        return fig, fig_adj
 
     def sample_from_model(self, num_nodes_samples):
         sampled_graphs, diffusion_images = self.model.sample(
@@ -184,9 +162,15 @@ class GroundTruthDiffusionPLModule(DiffusionPLModule):
     logger: NNLogger
 
     def instantiate_model(self, model, metadata):
-        self.register_buffer("ref_graph", metadata.ref_graph)
+        self.register_buffer("ref_graph_edges", self.metadata.ref_graph_edges)
+        self.register_buffer("ref_graph_feat", self.metadata.ref_graph_feat)
+
         inst_model = hydra.utils.instantiate(
-            model, feature_dim=metadata.feature_dim, ref_graph=self.ref_graph, _recursive_=False
+            model,
+            feature_dim=metadata.feature_dim,
+            ref_graph_edges=self.ref_graph_edges,
+            ref_graph_feat=self.ref_graph_feat,
+            _recursive_=False,
         )
         return inst_model
 

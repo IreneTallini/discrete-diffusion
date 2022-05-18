@@ -38,12 +38,13 @@ module:
   type_num_nodes_samples: -1 #-1 random, n > 0 fix
   model:
     _target_: discrete_diffusion.modules.diffusion.GroundTruthDiffusion
-    diffusion_speed: 0.001
-    timesteps: 2
+    diffusion_speed: 0.01
+    timesteps: 100
     threshold_sample: 0.5
     denoise_fn:
       _target_: discrete_diffusion.modules.ground_truth_backward.GroundTruthBackward
-      ref_graph: ???
+      ref_graph_edges: ???
+      ref_graph_feat: ???
       Qt: ???
 
   optimizer:

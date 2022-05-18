@@ -23,7 +23,7 @@ from nn_core.serialization import NNCheckpointIO
 # Force the execution of __init__.py if this file is executed directly.
 import discrete_diffusion  # noqa
 from discrete_diffusion.data.datamodule import MetaData
-from discrete_diffusion.utils import edge_index_to_adj
+from discrete_diffusion.utils import edge_index_to_adj, generate_sampled_graphs_figures
 
 pylogger = logging.getLogger(__name__)
 
@@ -98,10 +98,10 @@ def run(cfg: DictConfig) -> str:
     logger: NNLogger = NNLogger(logging_cfg=cfg.train.logging, cfg=cfg, resume_id=template_core.resume_id)
 
     pylogger.info("Logging Reference Dataset")
-    # Plot Dataset Example
+
     ref_batch = next(iter(datamodule.train_dataloader()))
     ref_list = torch_geometric.data.Batch.to_data_list(ref_batch)
-    fig, fig_adj = model.generate_sampled_graphs_figures(ref_list)
+    fig, fig_adj = generate_sampled_graphs_figures(ref_list)
     logger.log_image(key="Dataset Example", images=[fig])
     logger.log_image(key="Dataset Example Adj", images=[fig_adj])
     plt.close()
@@ -113,8 +113,8 @@ def run(cfg: DictConfig) -> str:
         logger=logger,
         callbacks=callbacks,
         **cfg.train.trainer,
-        check_val_every_n_epoch=1,
-        log_every_n_steps=1,
+        # check_val_every_n_epoch=1,
+        # log_every_n_steps=1,
     )
 
     pylogger.info("Starting training!")

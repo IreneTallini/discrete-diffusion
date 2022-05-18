@@ -2,6 +2,7 @@ from typing import List
 
 import torch
 import torch.nn.functional as F
+import wandb
 from hydra.utils import instantiate
 from matplotlib import cm
 from matplotlib import pyplot as plt
@@ -14,7 +15,13 @@ from torch_geometric.data import Batch, Data
 from torch_geometric.utils import from_networkx
 from tqdm import tqdm
 
-from discrete_diffusion.utils import adj_to_edge_index, edge_index_to_adj, get_graph_sizes_from_batch
+from discrete_diffusion.utils import (
+    adj_to_edge_index,
+    edge_index_to_adj,
+    get_data_from_edge_index,
+    get_graph_sizes_from_batch,
+    unflatten_adj,
+)
 
 
 class Diffusion(nn.Module):
@@ -45,7 +52,7 @@ class Diffusion(nn.Module):
         """
         Qts = []
 
-        for t in range(1, self.num_timesteps + 1):
+        for t in range(self.num_timesteps + 1):
 
             flip_prob = 0.5 * (1 - (1 - 2 * self.diffusion_speed) ** t)
             not_flip_prob = 1 - flip_prob
@@ -59,7 +66,7 @@ class Diffusion(nn.Module):
             Qts.append(Qt)
 
         Qts = torch.stack(Qts, dim=0)
-        assert Qts.shape == (self.num_timesteps, 2, 2)
+        assert Qts.shape == (self.num_timesteps + 1, 2, 2)
         return Qts
 
     def forward(self, x_start: Batch, *args, **kwargs):
@@ -112,9 +119,10 @@ class Diffusion(nn.Module):
         adj_noisy_unmasked = Categorical(adj_with_flip_probs).sample().type_as(adj)
 
         length_batches = x_start.ptr[1:] - x_start.ptr[:-1]
-        mask = torch.block_diag(*[torch.ones(l, l) for l in length_batches]).type_as(adj)
+        mask = torch.block_diag(*[torch.triu(torch.ones(l, l), diagonal=1) for l in length_batches]).type_as(adj)
 
-        adj_noisy = adj_noisy_unmasked * mask
+        adj_noisy_triu = adj_noisy_unmasked * mask
+        adj_noisy = adj_noisy_triu + adj_noisy_triu.T
         x_noisy = x_start
         x_noisy.edge_index = adj_to_edge_index(adj_noisy)
 
@@ -133,7 +141,7 @@ class Diffusion(nn.Module):
         batch_size = x_start_batch.num_graphs
 
         # (2, 2)
-        Q_likelihood = self.Qt[0]
+        Q_likelihood = self.Qt[1]
         # (B, 2, 2)
         Q_prior_batch = self.Qt[t_batch - 1]
         Q_evidence_batch = self.Qt[t_batch]
@@ -176,11 +184,12 @@ class Diffusion(nn.Module):
         # flattened concatenation of edge probabilities in the batch
         # (all_possible_edges_in_batch, )
         edge_similarities = self.denoise_fn(x_noisy, t)
-        edge_probs = torch.sigmoid(edge_similarities)
+        # edge_probs = torch.sigmoid(edge_similarities)
+        edge_probs = edge_similarities
 
         edge_probs_expanded = torch.stack((1 - edge_probs, edge_probs), dim=-1)
 
-        if t[0] != 0:
+        if t[0] != 1:
             # (all_possible_edges_in_batch, )
             flattened_sampled_adjs = Categorical(probs=edge_probs_expanded).sample().long()
         else:
@@ -195,7 +204,7 @@ class Diffusion(nn.Module):
             flat_idx = flat_idx + torch.div(graph_sizes[i] * (graph_sizes[i] - 1), 2, rounding_mode="floor")
             flattened_adj_indices.append(flat_idx)
 
-        graphs_list: List[Data] = []
+        graph_list: List[Data] = []
         edge_probs_list: List[torch.Tensor] = []
 
         for i in range(len(graph_sizes)):
@@ -205,24 +214,20 @@ class Diffusion(nn.Module):
             # (n*n)
             flattened_adj_g = flattened_sampled_adjs[flattened_adj_indices[i] : flattened_adj_indices[i + 1]]
             # (n, n)
-            adj = torch.zeros((num_nodes, num_nodes)).type_as(flattened_adj_g)
-            tril_indices = torch.tril_indices(num_nodes, num_nodes, offset=-1)
-            adj[tril_indices[0], tril_indices[1]] = flattened_adj_g
-            adj = adj + adj.T
+            adj = unflatten_adj(flattened_adj_g, num_nodes)
 
             flattened_edge_probs_g = edge_probs[flattened_adj_indices[i] : flattened_adj_indices[i + 1]]
-            edge_probs_g = torch.zeros((num_nodes, num_nodes)).type_as(flattened_edge_probs_g)
-            edge_probs_g[tril_indices[0], tril_indices[1]] = flattened_edge_probs_g
-            edge_probs_g = edge_probs_g + edge_probs_g.T
+
+            edge_probs_g = unflatten_adj(flattened_edge_probs_g, num_nodes)
 
             edge_index = adj_to_edge_index(adj)
             node_features = x_noisy.x[x_noisy.ptr[i] : x_noisy.ptr[i + 1]]
-            graph = Data(x=node_features, edge_index=edge_index, num_nodes=num_nodes)
+            graph = get_data_from_edge_index(edge_index, node_features)
 
-            graphs_list.append(graph)
+            graph_list.append(graph)
             edge_probs_list.append(edge_probs_g)
 
-        graph_batch = Batch.from_data_list(graphs_list)
+        graph_batch = Batch.from_data_list(graph_list)
 
         return graph_batch, edge_probs_list
 
@@ -263,23 +268,29 @@ class Diffusion(nn.Module):
         num_generated_graphs = graphs_batch.num_graphs
 
         side = 4
-        freq = self.num_timesteps // (side**2 - 2)
+        freq = self.num_timesteps // (side**2 - 1) + 1
 
         fig_adj, axs_adj = plt.subplots(side, side, constrained_layout=True)
         axs_adj = axs_adj.flatten()
 
-        for i in tqdm(reversed(range(0, self.num_timesteps)), desc="Sampling loop time step", total=self.num_timesteps):
+        for i in tqdm(
+            reversed(range(1, self.num_timesteps + 1)), desc="Sampling loop time step", total=self.num_timesteps
+        ):
 
             times = torch.full((num_generated_graphs,), i).type_as(self.Qt[0])
 
+            if i == self.num_timesteps:
+                graph = graphs_batch.get_example(0)
+                adj = edge_index_to_adj(graph.edge_index, graph.num_nodes)
+                axs_adj[0].imshow(adj.cpu().detach(), cmap=coolwarm, vmin=0, vmax=1)
+                axs_adj[0].set_title("initial noise")
+
             graphs_batch, edge_probs_list = self.sampling_step(graphs_batch, times)
 
-            if i == self.num_timesteps - 1:
-                axs_adj[-1].imshow(edge_probs_list[0].cpu().detach(), cmap=coolwarm, vmin=0, vmax=1)
-                axs_adj[-1].set_title("noise = " + str(i))
-            elif i % freq == 0:
-                axs_adj[i // freq].imshow(edge_probs_list[0].cpu().detach(), cmap=coolwarm, vmin=0, vmax=1)
-                axs_adj[i // freq].set_title("noise = " + str(i))
+            if (i % freq == 0) or (i == 1):
+                j = i // freq
+                axs_adj[side**2 - 1 - j].imshow(edge_probs_list[0].cpu().detach(), cmap=coolwarm, vmin=0, vmax=1)
+                axs_adj[side**2 - 1 - j].set_title("noise = " + str(i))
 
         fig_adj.colorbar(cm.ScalarMappable(cmap=coolwarm))
 
@@ -294,19 +305,23 @@ class GroundTruthDiffusion(Diffusion):
         diffusion_speed: float,
         timesteps: int,
         threshold_sample: float,
-        ref_graph: Data,
+        ref_graph_edges,
+        ref_graph_feat,
     ):
         super(Diffusion, self).__init__()
 
         self.num_timesteps = timesteps
         self.diffusion_speed = diffusion_speed
         self.threshold_sample = threshold_sample
-
+        self.register_buffer("ref_graph_edges", ref_graph_edges)
+        self.register_buffer("ref_graph_feat", ref_graph_feat)
         Qt = self.construct_transition_matrices()
-        self.denoise_fn = instantiate(denoise_fn, ref_graph=ref_graph, Qt=Qt, _recursive_=False)
-        self.ref_graph = ref_graph
-
         self.register_buffer("Qt", Qt)
+
+        self.denoise_fn = instantiate(
+            denoise_fn, ref_graph_edges=ref_graph_edges, ref_graph_feat=ref_graph_feat, Qt=Qt, _recursive_=False
+        )
+
         self.dummy_par = nn.Linear(1, 1)
 
     def forward(self, x_start: Batch, *args, **kwargs):
@@ -314,8 +329,10 @@ class GroundTruthDiffusion(Diffusion):
         dummy_loss = F.mse_loss(self.dummy_par(torch.ones((1,)).type_as(self.Qt)), torch.zeros((1,)).type_as(self.Qt))
         return dummy_loss
 
-    def generate_noisy_graph(self, num_nodes):
-        ref_batch = Batch.from_data_list([self.ref_graph])
-        t = torch.tensor([self.num_timesteps]).type_as(self.ref_graph.edge_index)
-        noisy_graph = self.forward_diffusion(ref_batch, t)
+    def generate_noisy_graph(self, num_nodes) -> Data:
+        ref_graph = get_data_from_edge_index(self.ref_graph_edges, self.ref_graph_feat)
+        ref_batch = Batch.from_data_list([ref_graph])
+        t = torch.tensor([self.num_timesteps]).type_as(ref_graph.edge_index)
+        noisy_batch = self.forward_diffusion(ref_batch, t)
+        noisy_graph = get_data_from_edge_index(noisy_batch.edge_index, noisy_batch.x)
         return noisy_graph
