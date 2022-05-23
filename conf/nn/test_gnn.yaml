@@ -1,11 +1,17 @@
-defaults:
-  - graph_generator: random_tree
-  - _self_
-
 data:
-  _target_: discrete_diffusion.data.datamodule.SyntheticGraphDataModule
+  _target_: discrete_diffusion.data.datamodule.GraphDataModule
 
-  graph_generator: ${nn.graph_generator}
+  dataset_name: ENZYMES
+  data_dir: ${oc.env:PROJECT_ROOT}/data/${nn.data.dataset_name}
+
+  feature_params:
+    features_to_consider:
+      - degree
+      - tags
+    #      - num_cycles
+
+    max_considered_cycle_len: 4
+  overfit: True
 
   datasets:
     train:
@@ -34,13 +40,15 @@ data:
 
 module:
   _target_: discrete_diffusion.pl_modules.pl_module.DiffusionPLModule
+  batch_size: ${nn.data.batch_size}
+  num_nodes_samples: -1 #-1 random, n > 0 fix
 
   model:
 
     _target_: discrete_diffusion.modules.diffusion.Diffusion
-    diffusion_speed: 0.001
-    timesteps: 1000
-    threshold_sample: 0.723
+    diffusion_speed: 0.3
+    timesteps: 5
+    threshold_sample: 0.5
 
     denoise_fn:
       _target_: discrete_diffusion.modules.link_predictor.LinkPredictor

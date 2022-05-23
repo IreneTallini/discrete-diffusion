@@ -1,24 +1,21 @@
 import logging
-import math
 from typing import Any, List, Mapping, Optional, Sequence, Tuple, Union
 
 import hydra
 import matplotlib.pyplot as plt
-import networkx as nx
 import omegaconf
 import pytorch_lightning as pl
 import torch
-import torch_geometric.utils
 from omegaconf import DictConfig
 from pytorch_lightning.loggers.base import DummyLogger
 from torch.optim import Optimizer
-from torch_geometric.data import Data
+from torch_geometric.data import Batch
 
 from nn_core.common import PROJECT_ROOT
 from nn_core.model_logging import NNLogger
 
 from discrete_diffusion.data.datamodule import MetaData
-from discrete_diffusion.utils import edge_index_to_adj, generate_sampled_graphs_figures
+from discrete_diffusion.utils import generate_sampled_graphs_figures
 
 pylogger = logging.getLogger(__name__)
 
@@ -33,9 +30,7 @@ class TemplatePLModule(pl.LightningModule):
         # We want to skip metadata since it is saved separately by the NNCheckpointIO object.
         # Be careful when modifying this instruction. If in doubt, don't do it :]
         self.save_hyperparameters(logger=False, ignore=("metadata",))
-
         self.metadata = metadata
-
         self.model = self.instantiate_model(model, metadata)
 
     def instantiate_model(self, model, metadata):
@@ -118,14 +113,18 @@ class DiffusionPLModule(TemplatePLModule):
     def __init__(self, model: DictConfig, metadata: Optional[MetaData] = None, *args, **kwargs) -> None:
         super().__init__(model, metadata=metadata, *args, **kwargs)
 
+        self.num_nodes_samples = self.set_nodes_number_sampling()
+
+    def set_nodes_number_sampling(self) -> int:
         num_nodes_list = torch.tensor([len(feature) for feature in self.metadata.features_list])
-        if self.hparams.type_num_nodes_samples == -1:
+        if self.hparams.num_nodes_samples == -1:
             idx = torch.randint(len(num_nodes_list), (1,), dtype=torch.int64)
-            self.num_nodes_samples = int(num_nodes_list.index_select(dim=0, index=idx))
-        elif self.hparams.type_num_nodes_samples > 0:
-            self.num_nodes_samples = self.hparams.type_num_nodes_samples
+            num_nodes_samples = int(num_nodes_list.index_select(dim=0, index=idx))
+        elif self.hparams.num_nodes_samples > 0:
+            num_nodes_samples = self.hparams.num_nodes_samples
         else:
-            raise AttributeError("type_num_nodes_samples should be -1 (random choice) or n > 0")
+            raise AttributeError("num_nodes_samples should be -1 (random choice) or n > 0")
+        return num_nodes_samples
 
     def on_validation_epoch_end(self) -> None:
         sampled_graphs, diffusion_images = self.sample_from_model(
@@ -151,7 +150,7 @@ class DiffusionPLModule(TemplatePLModule):
             self.logger.log_image(key="Sampled graphs/test", images=[fig])
             self.logger.log_image(key="Sampled adj/test", images=[fig_adj])
 
-    def sample_from_model(self, num_nodes_samples):
+    def sample_from_model(self, num_nodes_samples: List[int]) -> (Batch, plt.Figure):
         sampled_graphs, diffusion_images = self.model.sample(
             self.metadata.features_list, num_nodes_samples=num_nodes_samples
         )

@@ -1,8 +1,9 @@
+import functools
+from copy import copy
 from typing import List
 
 import torch
 import torch.nn.functional as F
-import wandb
 from hydra.utils import instantiate
 from matplotlib import cm
 from matplotlib import pyplot as plt
@@ -56,7 +57,6 @@ class Diffusion(nn.Module):
         Qts = []
 
         for t in range(self.num_timesteps + 1):
-
             flip_prob = 0.5 * (1 - (1 - 2 * self.diffusion_speed) ** t)
             not_flip_prob = 1 - flip_prob
 
@@ -74,18 +74,15 @@ class Diffusion(nn.Module):
 
     def forward(self, x_start: Batch, *args, **kwargs):
 
-        random_timesteps = self.sample_timesteps(x_start)
-
+        random_timesteps = self.sample_timesteps(x_start)  # (B,)
         x_noisy = self.forward_diffusion(x_start, random_timesteps)
-
         # (all_possible_edges_batch, 2)
-        q_noisy = self.backward_diffusion(x_start_batch=x_start, t_batch=random_timesteps, x_t_batch=x_noisy)
-
+        q_noisy = self.backward_diffusion(
+            x_start_batch=x_start, t_batch=random_timesteps, x_t_batch=x_noisy
+        )  # (B * N_edges, 2)
         # (all_possible_edges_batch)
-        q_approx = self.denoise_fn(x_noisy, random_timesteps)
-
-        loss = self.compute_loss(q_target=q_noisy[:, 1], q_approx=q_approx)
-
+        q_approx = self.denoise_fn(x_noisy, random_timesteps)  # (B * N_edges,)
+        loss = self.compute_loss(q_approx=q_approx, q_target=q_noisy[:, 1])
         return loss
 
     def sample_timesteps(self, x_start: Batch) -> torch.Tensor:
@@ -97,9 +94,7 @@ class Diffusion(nn.Module):
         :return:
         """
         batch_size = x_start.num_graphs
-
         random_timesteps = torch.randint(1, self.num_timesteps + 1, (batch_size,)).type_as(x_start["edge_index"])
-
         return random_timesteps
 
     def forward_diffusion(self, x_start: Batch, random_timesteps: torch.Tensor) -> Batch:
@@ -126,7 +121,7 @@ class Diffusion(nn.Module):
 
         adj_noisy_triu = adj_noisy_unmasked * mask
         adj_noisy = adj_noisy_triu + adj_noisy_triu.T
-        x_noisy = x_start
+        x_noisy = copy(x_start)
         x_noisy.edge_index = adj_to_edge_index(adj_noisy)
 
         return x_noisy
@@ -177,7 +172,6 @@ class Diffusion(nn.Module):
         q_approx: torch.Tensor,
     ):
         loss = F.binary_cross_entropy_with_logits(q_approx, q_target, reduction="mean")
-
         return loss
 
     @torch.no_grad()
@@ -238,7 +232,7 @@ class Diffusion(nn.Module):
         return torch.sigmoid(edge_similarities)
 
     @torch.no_grad()
-    def sample(self, features_list, num_nodes_samples):
+    def sample(self, features_list, num_nodes_samples) -> (Batch, plt.Figure):
         """
         Generate graphs
 
@@ -331,14 +325,13 @@ class GroundTruthDiffusion(Diffusion):
         self.dummy_par = nn.Linear(1, 1)
 
     def forward(self, x_start: Batch, *args, **kwargs):
-
         dummy_loss = F.mse_loss(self.dummy_par(torch.ones((1,)).type_as(self.Qt)), torch.zeros((1,)).type_as(self.Qt))
         return dummy_loss
 
-    def generate_noisy_graph(self, num_nodes) -> Data:
-        ref_graph = get_data_from_edge_index(self.ref_graph_edges, self.ref_graph_feat)
-        ref_batch = Batch.from_data_list([ref_graph])
-        t = torch.tensor([self.num_timesteps]).type_as(ref_graph.edge_index)
-        noisy_batch = self.forward_diffusion(ref_batch, t)
-        noisy_graph = get_data_from_edge_index(noisy_batch.edge_index, noisy_batch.x)
-        return noisy_graph
+    # def generate_noisy_graph(self, num_nodes) -> Data:
+    #     ref_graph = get_data_from_edge_index(self.ref_graph_edges, self.ref_graph_feat)
+    #     ref_batch = Batch.from_data_list([ref_graph])
+    #     t = torch.tensor([self.num_timesteps]).type_as(ref_graph.edge_index)
+    #     noisy_batch = self.forward_diffusion(ref_batch, t)
+    #     noisy_graph = get_data_from_edge_index(noisy_batch.edge_index, noisy_batch.x)
+    #     return noisy_graph

@@ -36,7 +36,7 @@ data:
 module:
   _target_: discrete_diffusion.pl_modules.pl_module.DiffusionPLModule
   batch_size: ${nn.data.batch_size}
-  type_num_nodes_samples: -1 #-1 random, n > 0 fix
+  num_nodes_samples: -1 #-1 random, n > 0 fix
 
   model:
     _target_: discrete_diffusion.modules.diffusion.Diffusion

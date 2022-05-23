@@ -1,5 +1,5 @@
 defaults:
-  - graph_generator: random_tree
+  - graph_generator: house_graph
   - _self_
 
 data:
@@ -45,13 +45,13 @@ data:
 module:
   _target_: discrete_diffusion.pl_modules.pl_module.DiffusionPLModule
   batch_size: ${nn.data.batch_size}
-  type_num_nodes_samples: -1 #-1 random, n > 0 fix
+  num_nodes_samples: -1 #-1 random, n > 0 fix
 
   model:
 
     _target_: discrete_diffusion.modules.diffusion.Diffusion
-    diffusion_speed: 0.3
-    timesteps: 5
+    diffusion_speed: 0.499
+    timesteps: 1
     threshold_sample: 0.5
 
     denoise_fn:
@@ -62,23 +62,23 @@ module:
       node_embedder:
         _target_: discrete_diffusion.modules.node_embedder.NodeEmbedder
         feature_dim: ???
-        num_mlp_layers: 2
+        num_mlp_layers: 3
         embedding_dim: ${nn.module.model.denoise_fn.time_dim}
         hidden_dim: ${nn.module.model.denoise_fn.time_dim}
         num_convs: 2
         dropout_rate: 0.
         do_preprocess: false
-        use_batch_norm: false
+        use_batch_norm: true
         jump_mode: none
 
   optimizer:
     _target_: torch.optim.Adam
-    lr: 0.0001
+    lr: 0.01
 
-  lr_scheduler:
-    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
-    T_0: 10
-    T_mult: 2
-    eta_min: 0 # min value for the lr
-    last_epoch: -1
-    verbose: False
+#  lr_scheduler:
+#    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+#    T_0: 10
+#    T_mult: 2
+#    eta_min: 0 # min value for the lr
+#    last_epoch: -1
+#    verbose: False

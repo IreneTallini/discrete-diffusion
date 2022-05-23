@@ -57,7 +57,7 @@ def get_example_from_batch(batch: Batch, idx: int) -> Data:
     return graph
 
 
-def unflatten_adj(flattened_adj, num_nodes) -> torch.Tensor:
+def unflatten_adj(flattened_adj: torch.Tensor, num_nodes: int) -> torch.Tensor:
     adj = torch.zeros((num_nodes, num_nodes)).type_as(flattened_adj)
     triu_indices = torch.triu_indices(num_nodes, num_nodes, offset=1)
     adj[triu_indices[0], triu_indices[1]] = flattened_adj
