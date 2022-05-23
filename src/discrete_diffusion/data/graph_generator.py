@@ -30,8 +30,9 @@ class GraphGenerator:
         for i in range(self.num_samples):
             params = {}
 
-            for k, v_list in self.nx_params.items():
-                params[k] = np.random.choice(v_list)
+            if self.nx_params is not None:
+                for k, v_list in self.nx_params.items():
+                    params[k] = np.random.choice(v_list)
 
             graph = instantiate(self.nx_generator, **params)
             graph: nx.Graph = nx.relabel.convert_node_labels_to_integers(graph)

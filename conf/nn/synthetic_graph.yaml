@@ -18,6 +18,7 @@ data:
       _target_: discrete_diffusion.data.graph_dataset.GraphDataset
 
   gpus: ${train.trainer.gpus}
+  overfit: True
 
   num_workers:
     train: 8
@@ -39,8 +40,8 @@ module:
 
   model:
     _target_: discrete_diffusion.modules.diffusion.Diffusion
-    diffusion_speed: 0.001
-    timesteps: 1000
+    diffusion_speed: 0.3
+    timesteps: 5
     threshold_sample: 0.5
 
     denoise_fn:

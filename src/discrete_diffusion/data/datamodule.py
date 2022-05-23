@@ -240,6 +240,7 @@ class SyntheticGraphDataModule(MyDataModule):
         gpus: Optional[Union[List[int], str, int]],
         val_percentage: float,
         graph_generator: DictConfig,
+        overfit: bool,
     ):
         super().__init__(datasets, num_workers, batch_size, gpus, val_percentage)
 
@@ -250,6 +251,9 @@ class SyntheticGraphDataModule(MyDataModule):
         self.generated_graphs: List[Data] = [from_networkx(nx_graph) for nx_graph in generated_nx_graphs]
 
         ref_graph = self.generated_graphs[0]
+        if overfit:
+            self.generated_graphs = graph_generator.num_samples * [ref_graph]
+            self.features_list = graph_generator.num_samples * [self.features_list[0]]
         self.feature_dim = ref_graph.x.shape[-1] if len(ref_graph.x.shape) > 1 else 1
         self.ref_graph_edges = ref_graph.edge_index
         self.ref_graph_feat = ref_graph.x
@@ -302,11 +306,13 @@ class GraphDataModule(MyDataModule):
         batch_size: DictConfig,
         gpus: Optional[Union[List[int], str, int]],
         val_percentage: float,
+        overfit: bool,
         **kwargs,
     ):
         super().__init__(datasets, num_workers, batch_size, gpus, val_percentage)
         self.data_dir = data_dir
         self.dataset_name = dataset_name
+        self.overfit = overfit
 
         self.data_list, self.class_to_label_dict, self.features_list = load_data_irene(
             self.data_dir,
@@ -315,6 +321,9 @@ class GraphDataModule(MyDataModule):
         )
 
         ref_graph = self.data_list[0]
+        if self.overfit:
+            self.data_list = 600 * [ref_graph]
+            self.features_list = 600 * [self.features_list[0]]
         self.feature_dim = ref_graph.x.shape[-1] if len(ref_graph.x.shape) > 1 else 1
         self.ref_graph_edges = ref_graph.edge_index
         self.ref_graph_feat = ref_graph.x

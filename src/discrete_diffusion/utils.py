@@ -44,6 +44,19 @@ def get_data_from_edge_index(edge_index: torch.Tensor, node_features: torch.Tens
     return Data(x=node_features, edge_index=edge_index, num_nodes=len(node_features))
 
 
+def get_example_from_batch(batch: Batch, idx: int) -> Data:
+    ids = list(range(batch.ptr[idx], batch.ptr[idx + 1]))
+    edge_index = []
+    min_id = min(ids)
+    for edge in batch.edge_index.T:
+        if edge[0] in ids:
+            edge_index.append(edge - min_id)
+    edge_index = torch.stack(edge_index, dim=1)
+    node_features = batch.x[batch.ptr[idx] : batch.ptr[idx + 1], :]
+    graph = Data(x=node_features, edge_index=edge_index, num_nodes=len(node_features))
+    return graph
+
+
 def unflatten_adj(flattened_adj, num_nodes) -> torch.Tensor:
     adj = torch.zeros((num_nodes, num_nodes)).type_as(flattened_adj)
     triu_indices = torch.triu_indices(num_nodes, num_nodes, offset=1)

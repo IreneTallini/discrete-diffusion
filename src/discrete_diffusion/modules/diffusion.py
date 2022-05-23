@@ -19,6 +19,7 @@ from discrete_diffusion.utils import (
     adj_to_edge_index,
     edge_index_to_adj,
     get_data_from_edge_index,
+    get_example_from_batch,
     get_graph_sizes_from_batch,
     unflatten_adj,
 )
@@ -36,6 +37,8 @@ class Diffusion(nn.Module):
         super().__init__()
 
         self.num_timesteps = timesteps
+
+        assert diffusion_speed <= 0.5
         self.diffusion_speed = diffusion_speed
         self.threshold_sample = threshold_sample
 
@@ -95,7 +98,7 @@ class Diffusion(nn.Module):
         """
         batch_size = x_start.num_graphs
 
-        random_timesteps = torch.randint(0, self.num_timesteps, (batch_size,)).type_as(x_start["edge_index"])
+        random_timesteps = torch.randint(1, self.num_timesteps + 1, (batch_size,)).type_as(x_start["edge_index"])
 
         return random_timesteps
 
@@ -139,6 +142,7 @@ class Diffusion(nn.Module):
         :return: tensor (num_possible_edges_batch, 2)
         """
         batch_size = x_start_batch.num_graphs
+        t_batch = t_batch.long()
 
         # (2, 2)
         Q_likelihood = self.Qt[1]
@@ -184,8 +188,7 @@ class Diffusion(nn.Module):
         # flattened concatenation of edge probabilities in the batch
         # (all_possible_edges_in_batch, )
         edge_similarities = self.denoise_fn(x_noisy, t)
-        # edge_probs = torch.sigmoid(edge_similarities)
-        edge_probs = edge_similarities
+        edge_probs = self.compute_edge_probs(edge_similarities)
 
         edge_probs_expanded = torch.stack((1 - edge_probs, edge_probs), dim=-1)
 
@@ -231,6 +234,9 @@ class Diffusion(nn.Module):
 
         return graph_batch, edge_probs_list
 
+    def compute_edge_probs(self, edge_similarities):
+        return torch.sigmoid(edge_similarities)
+
     @torch.no_grad()
     def sample(self, features_list, num_nodes_samples):
         """
@@ -274,13 +280,13 @@ class Diffusion(nn.Module):
         axs_adj = axs_adj.flatten()
 
         for i in tqdm(
-            reversed(range(1, self.num_timesteps + 1)), desc="Sampling loop time step", total=self.num_timesteps
+            reversed(range(1, self.num_timesteps + 1)), desc="Sampling loop time step", total=self.num_timesteps + 1
         ):
 
             times = torch.full((num_generated_graphs,), i).type_as(self.Qt[0])
 
             if i == self.num_timesteps:
-                graph = graphs_batch.get_example(0)
+                graph = get_example_from_batch(graphs_batch, 0)
                 adj = edge_index_to_adj(graph.edge_index, graph.num_nodes)
                 axs_adj[0].imshow(adj.cpu().detach(), cmap=coolwarm, vmin=0, vmax=1)
                 axs_adj[0].set_title("initial noise")

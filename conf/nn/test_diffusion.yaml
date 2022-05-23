@@ -1,11 +1,23 @@
 defaults:
-  - graph_generator: balanced_tree
+  - graph_generator: house_graph
   - _self_
 
 data:
-  _target_: discrete_diffusion.data.datamodule.SyntheticGraphDataModule
+#  _target_: discrete_diffusion.data.datamodule.SyntheticGraphDataModule
+
+  _target_: discrete_diffusion.data.datamodule.GraphDataModule
+
+  dataset_name: ENZYMES
+  data_dir: ${oc.env:PROJECT_ROOT}/data/${nn.data.dataset_name}
 
   graph_generator: ${nn.graph_generator}
+
+  overfit: True
+
+  feature_params:
+    features_to_consider:
+      - degree
+      - tags
 
   datasets:
     train:
@@ -38,8 +50,8 @@ module:
   type_num_nodes_samples: -1 #-1 random, n > 0 fix
   model:
     _target_: discrete_diffusion.modules.diffusion.GroundTruthDiffusion
-    diffusion_speed: 0.01
-    timesteps: 100
+    diffusion_speed: 0.3
+    timesteps: 5
     threshold_sample: 0.5
     denoise_fn:
       _target_: discrete_diffusion.modules.ground_truth_backward.GroundTruthBackward
