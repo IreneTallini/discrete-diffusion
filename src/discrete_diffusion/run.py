@@ -23,7 +23,7 @@ from nn_core.serialization import NNCheckpointIO
 # Force the execution of __init__.py if this file is executed directly.
 import discrete_diffusion  # noqa
 from discrete_diffusion.data.datamodule import MetaData
-from discrete_diffusion.utils import edge_index_to_adj, generate_sampled_graphs_figures
+from discrete_diffusion.utils import clear_figures, edge_index_to_adj, generate_sampled_graphs_figures
 
 pylogger = logging.getLogger(__name__)
 
@@ -104,7 +104,7 @@ def run(cfg: DictConfig) -> str:
     fig, fig_adj = generate_sampled_graphs_figures(ref_list)
     logger.log_image(key="Dataset Example", images=[fig])
     logger.log_image(key="Dataset Example Adj", images=[fig_adj])
-    plt.close()
+    clear_figures([fig, fig_adj])
 
     pylogger.info("Instantiating the <Trainer>")
     trainer = pl.Trainer(

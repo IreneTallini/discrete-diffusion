@@ -86,3 +86,9 @@ def generate_sampled_graphs_figures(sampled_graphs: List[Data]) -> (plt.Figure, 
         nx.draw(data, with_labels=True, ax=axs[i], node_size=0.1)
 
     return fig, fig_adj
+
+
+def clear_figures(figures_list: List[plt.Figure]):
+    for fig in figures_list:
+        fig.clear()
+        plt.close(fig)

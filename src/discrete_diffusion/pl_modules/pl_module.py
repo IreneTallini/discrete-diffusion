@@ -15,7 +15,7 @@ from nn_core.common import PROJECT_ROOT
 from nn_core.model_logging import NNLogger
 
 from discrete_diffusion.data.datamodule import MetaData
-from discrete_diffusion.utils import generate_sampled_graphs_figures
+from discrete_diffusion.utils import clear_figures, generate_sampled_graphs_figures
 
 pylogger = logging.getLogger(__name__)
 
@@ -140,8 +140,7 @@ class DiffusionPLModule(TemplatePLModule):
                 key="Adjacency matrices sampling process for first graph in batch/val", images=[diffusion_images]
             )
 
-        plt.close(fig)
-        plt.close(diffusion_images)
+        clear_figures([fig, fig_adj, diffusion_images])
 
     def on_test_epoch_end(self) -> None:
         sampled_graphs, _ = self.sample_from_model([self.num_nodes_samples] * self.hparams.batch_size.test)
@@ -149,6 +148,8 @@ class DiffusionPLModule(TemplatePLModule):
         if type(self.logger) != DummyLogger:
             self.logger.log_image(key="Sampled graphs/test", images=[fig])
             self.logger.log_image(key="Sampled adj/test", images=[fig_adj])
+
+        clear_figures([fig, fig_adj])
 
     def sample_from_model(self, num_nodes_samples: List[int]) -> (Batch, plt.Figure):
         sampled_graphs, diffusion_images = self.model.sample(

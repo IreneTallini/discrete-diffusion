@@ -50,7 +50,7 @@ module:
   model:
 
     _target_: discrete_diffusion.modules.diffusion.Diffusion
-    diffusion_speed: 0.499
+    diffusion_speed: 0.49
     timesteps: 1
     threshold_sample: 0.5
 
@@ -62,14 +62,14 @@ module:
       node_embedder:
         _target_: discrete_diffusion.modules.node_embedder.NodeEmbedder
         feature_dim: ???
-        num_mlp_layers: 3
+        num_mlp_layers: 10
         embedding_dim: ${nn.module.model.denoise_fn.time_dim}
         hidden_dim: ${nn.module.model.denoise_fn.time_dim}
-        num_convs: 2
+        num_convs: 1
         dropout_rate: 0.
-        do_preprocess: false
+        do_preprocess: true
         use_batch_norm: true
-        jump_mode: none
+        jump_mode: cat
 
   optimizer:
     _target_: torch.optim.Adam

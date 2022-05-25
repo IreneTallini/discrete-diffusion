@@ -210,7 +210,7 @@ class SyntheticGraphDataModule(MyDataModule):
 
         self.generated_graphs: List[Data] = [from_networkx(nx_graph) for nx_graph in generated_nx_graphs]
 
-        ref_graph = self.generated_graphs[0]
+        ref_graph = self.generated_graphs[1]
         if overfit:
             self.generated_graphs = graph_generator.num_samples * [ref_graph]
             self.features_list = graph_generator.num_samples * [self.features_list[0]]
