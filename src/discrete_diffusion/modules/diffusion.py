@@ -171,7 +171,7 @@ class Diffusion(nn.Module):
         q_target: torch.Tensor,
         q_approx: torch.Tensor,
     ):
-        cross_ent = F.binary_cross_entropy_with_logits(q_approx, q_target, reduction="mean")
+        cross_ent = F.binary_cross_entropy(q_approx, q_target, reduction="mean")
         ent = F.binary_cross_entropy(q_target, q_target, reduction="mean")
         loss = cross_ent - ent
         # loss = F.mse_loss(q_approx, q_target, reduce="mean")
@@ -185,8 +185,8 @@ class Diffusion(nn.Module):
         # flattened concatenation of edge probabilities in the batch
         # (all_possible_edges_in_batch, )
         edge_similarities = self.denoise_fn(x_noisy, t)
-        edge_probs = self.compute_edge_probs(edge_similarities)
-        # edge_probs = edge_similarities
+        # edge_probs = self.compute_edge_probs(edge_similarities)
+        edge_probs = edge_similarities
 
         edge_probs_expanded = torch.stack((1 - edge_probs, edge_probs), dim=-1)
 

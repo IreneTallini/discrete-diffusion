@@ -7,6 +7,7 @@ import omegaconf
 import torch
 from hydra.utils import instantiate
 from omegaconf import DictConfig
+from torch.nn.functional import one_hot
 from torch.utils.data import Dataset
 from torch_geometric.data import Data
 
@@ -38,10 +39,11 @@ class GraphGenerator:
             graph: nx.Graph = nx.relabel.convert_node_labels_to_integers(graph)
 
             for i in range(graph.number_of_nodes()):
-                graph.nodes[i]["x"] = 1.0
+                # graph.nodes[i]["x"] = 1.0
+                graph.nodes[i]["x"] = one_hot(torch.tensor(i), graph.number_of_nodes()).float()
 
             generated_graphs.append(graph)
-            features_list.append(torch.ones((graph.number_of_nodes(), 1)))
+            features_list.append([graph.nodes[i]["x"] for i in range(graph.number_of_nodes())])
 
             if save_path:
                 with open(f"{save_path}/{self.graph_type}_{i}.torch", "wb") as f:

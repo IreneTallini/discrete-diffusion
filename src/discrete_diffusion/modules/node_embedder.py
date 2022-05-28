@@ -43,11 +43,12 @@ class NodeEmbedder(nn.Module):
         self.convs = nn.ModuleList()
         for conv in range(self.num_convs):
             input_dim = self.feature_dim if (conv == 0 and not self.do_preprocess) else self.hidden_dim
+            output_dim = self.embedding_dim if (conv == self.num_convs - 1) else self.hidden_dim
             conv = GINConv(
                 MLP(
                     num_layers=num_mlp_layers,
                     input_dim=input_dim,
-                    output_dim=self.embedding_dim,
+                    output_dim=output_dim,
                     hidden_dim=self.hidden_dim,
                     use_batch_norm=self.use_batch_norm,
                 )
