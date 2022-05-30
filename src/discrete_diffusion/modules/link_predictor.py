@@ -15,8 +15,19 @@ class LinkPredictor(nn.Module):
 
         self.node_embedder = instantiate(node_embedder, feature_dim=feature_dim)
 
+        # self.time_embedder = nn.Sequential(
+        #     SinusoidalPosEmb(time_dim), nn.Linear(time_dim, time_dim * 4), nn.GELU(), nn.Linear(time_dim * 4, time_dim)
+        # )
+
         self.time_embedder = nn.Sequential(
-            SinusoidalPosEmb(time_dim), nn.Linear(time_dim, time_dim * 4), nn.GELU(), nn.Linear(time_dim * 4, time_dim)
+            nn.Linear(1, time_dim),
+            nn.ReLU(),
+            nn.Linear(time_dim, time_dim * 4),
+            nn.ReLU(),
+            nn.Linear(time_dim * 4, time_dim * 4),
+            nn.ReLU(),
+            nn.Linear(time_dim * 4, time_dim),
+            nn.ReLU(),
         )
 
     def forward(self, x: Batch, t: torch.Tensor) -> torch.Tensor:
@@ -31,11 +42,12 @@ class LinkPredictor(nn.Module):
 
         # (num_nodes_in_batch, embedding_dim)
         node_embeddings = self.node_embedder(x)
-        time_embeddings = self.compute_time_embeddings(t, graph_sizes)
+        time_embeddings = self.compute_time_embeddings(t[:, None].float(), graph_sizes)
         assert node_embeddings.shape == time_embeddings.shape
 
         # (num_nodes_in_batch, embedding_dim)
-        embeddings = torch.cat((node_embeddings, time_embeddings), dim=-1)
+        # embeddings = torch.cat((node_embeddings, time_embeddings), dim=-1)
+        embeddings = node_embeddings + time_embeddings
 
         similarities = embeddings @ embeddings.T
         # similarities = compute_self_similarities(embeddings)
