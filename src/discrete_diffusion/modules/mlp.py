@@ -52,5 +52,7 @@ class MLP(nn.Module):
             return nn.ReLU()
         elif non_linearity == "tanh":
             return nn.Tanh()
+        elif non_linearity == "leaky_relu":
+            return nn.LeakyReLU()
         else:
             raise NotImplementedError(f"No such activation {non_linearity}")

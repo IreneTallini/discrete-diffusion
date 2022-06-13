@@ -83,8 +83,8 @@ def load_data_irene(path, dataset_name, feature_params):
     features_list = []
     for g in graphs:
         gr = from_networkx(g)
-        # gr.x = gr.feature.float()
-        gr.x = F.one_hot(torch.arange(gr.num_nodes)).float()
+        gr.x = gr.feature.float()
+        # gr.x = F.one_hot(torch.arange(gr.num_nodes)).float()
         features_list.append(gr.x)
         delattr(gr, "feature")
         gr.y = gr.label

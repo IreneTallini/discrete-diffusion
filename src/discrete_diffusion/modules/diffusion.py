@@ -74,12 +74,12 @@ class Diffusion(nn.Module):
 
     def forward(self, x_start: Batch, *args, **kwargs):
 
-        random_timesteps = self.sample_timesteps(x_start)  # (B,)
+        ts = torch.randint(1, self.num_timesteps + 1, ())
+        random_timesteps = torch.full((x_start.num_graphs,), ts.item()).type_as(x_start.edge_index)
+        # random_timesteps = self.sample_timesteps(x_start)
         x_noisy = self.forward_diffusion(x_start, random_timesteps)
         # (all_possible_edges_batch, 2)
-        q_noisy = self.backward_diffusion(
-            x_start_batch=x_start, t_batch=random_timesteps, x_t_batch=x_noisy
-        )  # (B * N_edges, 2)
+        q_noisy = self.backward_diffusion(x_start_batch=x_start, t_batch=random_timesteps, x_t_batch=x_noisy)
         # (all_possible_edges_batch)
         q_approx = self.denoise_fn(x_noisy, random_timesteps)  # (B * N_edges,)
         loss = self.compute_loss(q_approx=q_approx, q_target=q_noisy[:, 1])
@@ -174,7 +174,6 @@ class Diffusion(nn.Module):
         cross_ent = F.binary_cross_entropy(q_approx, q_target, reduction="mean")
         ent = F.binary_cross_entropy(q_target, q_target, reduction="mean")
         loss = cross_ent - ent
-        # loss = F.mse_loss(q_approx, q_target, reduce="mean")
         return loss
 
     @torch.no_grad()

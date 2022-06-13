@@ -281,9 +281,12 @@ class GraphDataModule(MyDataModule):
         )
 
         ref_graph = self.data_list[0]
-        if self.overfit:
-            self.data_list = 600 * [ref_graph]
-            self.features_list = 600 * [self.features_list[0]]
+        if self.overfit > -1:
+            graphs_list = self.data_list[: self.overfit]
+            features_list = self.features_list[: self.overfit]
+            multiplicity = len(self.data_list) // self.overfit + 1
+            self.data_list = multiplicity * graphs_list
+            self.features_list = multiplicity * features_list
         self.feature_dim = ref_graph.x.shape[-1] if len(ref_graph.x.shape) > 1 else 1
         self.ref_graph_edges = ref_graph.edge_index
         self.ref_graph_feat = ref_graph.x

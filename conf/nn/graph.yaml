@@ -15,7 +15,7 @@ data:
     #      - num_cycles
 
     max_considered_cycle_len: 4
-  overfit: True
+  overfit: 2
 
   datasets:
     train:
@@ -36,7 +36,7 @@ data:
 
   batch_size:
     train: 16
-    val: 1
+    val: 16
     test: 1
 
   val_percentage: 0.1
@@ -51,7 +51,7 @@ module:
 
     _target_: discrete_diffusion.modules.diffusion.Diffusion
     diffusion_speed: 0.3
-    timesteps: 5
+    timesteps: 13
     threshold_sample: 0.5
 
     denoise_fn:
@@ -60,25 +60,27 @@ module:
       time_dim: 128
 
       node_embedder:
-        _target_: discrete_diffusion.modules.node_embedder.NodeEmbedder
+        _target_: discrete_diffusion.modules.node_embedder.NodeEmbedder2
         feature_dim: ???
         num_mlp_layers: 3
         embedding_dim: ${nn.module.model.denoise_fn.time_dim}
         hidden_dim: ${nn.module.model.denoise_fn.time_dim}
-        num_convs: 2
+        num_convs: 4
         dropout_rate: 0.
         do_preprocess: true
         use_batch_norm: true
         jump_mode: cat
+        num_timesteps: ${nn.module.model.timesteps}
+        num_heads: 1
 
   optimizer:
     _target_: torch.optim.Adam
     lr: 0.0001
 
-#  lr_scheduler:
-#    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
-#    T_0: 10
-#    T_mult: 2
-#    eta_min: 0 # min value for the lr
-#    last_epoch: -1
-#    verbose: False
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+    T_0: 10
+    T_mult: 2
+    eta_min: 0 # min value for the lr
+    last_epoch: -1
+    verbose: False

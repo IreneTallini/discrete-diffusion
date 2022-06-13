@@ -65,6 +65,18 @@ def unflatten_adj(flattened_adj: torch.Tensor, num_nodes: int) -> torch.Tensor:
     return adj
 
 
+def unflatten_batch(flat_batch: torch.Tensor, graph_sizes: torch.Tensor, batch_size: int) -> List[torch.Tensor]:
+    flat_idx_start = 0
+    unflattened_adj = []
+    for i in range(batch_size):
+        flat_idx_end = flat_idx_start + torch.div(graph_sizes[i] * (graph_sizes[i] - 1), 2, rounding_mode="floor")
+        flat_adj = flat_batch[flat_idx_start:flat_idx_end]
+        adj = unflatten_adj(flat_adj, graph_sizes[i])
+        unflattened_adj.append(adj)
+        flat_idx_start = flat_idx_end
+    return unflattened_adj
+
+
 def generate_sampled_graphs_figures(sampled_graphs: List[Data]) -> (plt.Figure, plt.Figure):
     num_samples = len(sampled_graphs)
     side = ceil(sqrt(num_samples))

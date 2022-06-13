@@ -54,14 +54,12 @@ class TemplatePLModule(pl.LightningModule):
 
     def training_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
         step_out = self.step(batch)
-
         self.log_dict(
             {"loss/train": step_out["loss"].cpu().detach()},
             on_step=True,
             on_epoch=True,
             prog_bar=True,
         )
-
         return step_out
 
     def validation_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
@@ -76,7 +74,6 @@ class TemplatePLModule(pl.LightningModule):
 
     def test_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
         step_out = self.step(batch)
-
         self.log_dict(
             {
                 "loss/test": step_out["loss"].cpu().detach(),
