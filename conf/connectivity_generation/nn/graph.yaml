@@ -6,7 +6,7 @@ data:
   _target_: discrete_diffusion.data.datamodule.GraphDataModule
 
   dataset_name: ENZYMES
-  data_dir: ${oc.env:PROJECT_ROOT}/data/${nn.data.dataset_name}
+  data_dirs: "[${oc.env:PROJECT_ROOT}/data/${connectivity_generation.nn.data.dataset_name}/standard]"
 
   feature_params:
     features_to_consider:
@@ -27,7 +27,7 @@ data:
     test:
       _target_: discrete_diffusion.data.graph_dataset.GraphDataset
 
-  gpus: ${train.trainer.gpus}
+  gpus: ${connectivity_generation.train.trainer.gpus}
 
   num_workers:
     train: 8
@@ -49,7 +49,7 @@ module:
 
   model:
 
-    _target_: discrete_diffusion.modules.diffusion.Diffusion
+    _target_: discrete_diffusion.modules.discrete_diffusion.DiscreteDiffusion
     diffusion_speed: 0.3
     timesteps: 13
     threshold_sample: 0.5
@@ -60,17 +60,17 @@ module:
       time_dim: 128
 
       node_embedder:
-        _target_: discrete_diffusion.modules.node_embedder.NodeEmbedder2
+        _target_: discrete_diffusion.modules.node_embedder.NodeEmbedderSeparatedTimeCond
         feature_dim: ???
         num_mlp_layers: 3
-        embedding_dim: ${nn.module.model.denoise_fn.time_dim}
-        hidden_dim: ${nn.module.model.denoise_fn.time_dim}
+        embedding_dim: ${connectivity_generation.nn.module.model.denoise_fn.time_dim}
+        hidden_dim: ${connectivity_generation.nn.module.model.denoise_fn.time_dim}
         num_convs: 4
         dropout_rate: 0.
         do_preprocess: true
         use_batch_norm: true
         jump_mode: cat
-        num_timesteps: ${nn.module.model.timesteps}
+        num_timesteps: ${connectivity_generation.nn.module.model.timesteps}
         num_heads: 1
 
   optimizer:

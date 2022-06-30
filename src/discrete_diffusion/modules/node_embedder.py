@@ -131,7 +131,7 @@ class NodeEmbedder(nn.Module):
         return node_out_features
 
 
-class NodeEmbedder2(nn.Module):
+class NodeEmbedderSeparatedTimeCond(nn.Module):
     def __init__(
         self,
         feature_dim,

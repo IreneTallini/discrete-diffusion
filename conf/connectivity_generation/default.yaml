@@ -1,7 +1,12 @@
+core:
+  project_name: discrete_diffusion
+  storage_dir: ${oc.env:PROJECT_ROOT}/storage
+  version: 0.0.1
+  tags: develop
+
 defaults:
-  - hydra: default
-  - connectivity_generation: default
-  - augmentation_pipeline: default
+  - nn: graph
+  - train: default
   - _self_ # as last argument to allow the override of parameters via this main config
 #    Decomment this parameter to get parallel job running
 #  - hydra/launcher: joblib

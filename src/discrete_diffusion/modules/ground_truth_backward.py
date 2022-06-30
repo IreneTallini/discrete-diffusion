@@ -23,10 +23,12 @@ class GroundTruthBackward(nn.Module):
 
         :return: tensor (all_possible_edges_batch, )
         """
-        ref_graph = get_data_from_edge_index(self.ref_graph_edges, self.ref_graph_feat)
-        ref_batch = Batch.from_data_list([ref_graph])
+        q_backward_all = torch
+        for ref_graph_edges, ref_graph_feat in zip(self.ref_graph_edges, self.ref_graph_feat):
+            ref_graph = get_data_from_edge_index(ref_graph_edges, ref_graph_feat)
+            ref_batch = Batch.from_data_list([ref_graph])
+            q_backward_all += self.backward_diffusion(x_start_batch=ref_batch, t_batch=t, x_t_batch=x)
 
-        q_backward_all = self.backward_diffusion(x_start_batch=ref_batch, t_batch=t, x_t_batch=x)
         return q_backward_all[:, 1]
 
     def backward_diffusion(self, x_start_batch: Batch, t_batch: torch.Tensor, x_t_batch: Batch) -> torch.Tensor:

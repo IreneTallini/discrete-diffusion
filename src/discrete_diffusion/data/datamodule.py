@@ -258,7 +258,7 @@ class SyntheticGraphDataModule(MyDataModule):
 class GraphDataModule(MyDataModule):
     def __init__(
         self,
-        data_dir: str,
+        data_dirs: str,
         dataset_name: str,
         feature_params,
         datasets: DictConfig,
@@ -270,12 +270,12 @@ class GraphDataModule(MyDataModule):
         **kwargs,
     ):
         super().__init__(datasets, num_workers, batch_size, gpus, val_percentage)
-        self.data_dir = data_dir
+        self.data_dirs = data_dirs
         self.dataset_name = dataset_name
         self.overfit = overfit
 
         self.data_list, self.class_to_label_dict, self.features_list = load_data_irene(
-            self.data_dir,
+            self.data_dirs,
             self.dataset_name,
             feature_params=feature_params,
         )

@@ -1,0 +1,5 @@
+connectivity:
+  mode: "train" # "restore", "train"
+
+node_features:
+  mode: "standard" # "restore", "train"
