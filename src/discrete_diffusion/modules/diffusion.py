@@ -8,7 +8,7 @@ from hydra.utils import instantiate
 from matplotlib import cm
 from matplotlib import pyplot as plt
 from matplotlib.cm import coolwarm
-from networkx.generators import erdos_renyi_graph
+from networkx.generators import complete_graph, erdos_renyi_graph
 from omegaconf import DictConfig
 from torch import nn
 from torch.distributions import Categorical
@@ -298,6 +298,37 @@ class Diffusion(nn.Module):
         fig_adj.colorbar(cm.ScalarMappable(cmap=coolwarm))
 
         return graphs_batch, fig_adj
+
+
+class AbsorbingStateDiffusion(Diffusion):
+    def construct_transition_matrices(self) -> torch.Tensor:
+        """
+        Constructs a tensor (T, 2, 2) containing for each timestep t in T the
+        transition probabilities
+        """
+        Qts = []
+
+        for t in range(self.num_timesteps + 1):
+            flip_prob = 1 - (1 - self.diffusion_speed) ** t
+            not_flip_prob = 1 - flip_prob
+
+            Qt = torch.tensor(
+                [
+                    [not_flip_prob, flip_prob],
+                    [0, 1],
+                ],
+            )
+            Qts.append(Qt)
+
+        Qts = torch.stack(Qts, dim=0)
+        assert Qts.shape == (self.num_timesteps + 1, 2, 2)
+        return Qts
+
+    def generate_noisy_graph(self, num_nodes):
+        nx_graph = complete_graph(num_nodes)
+        graph = from_networkx(nx_graph)
+        graph.edge_index = graph.edge_index.type_as(self.Qt[0]).long()
+        return graph
 
 
 class GroundTruthDiffusion(Diffusion):
