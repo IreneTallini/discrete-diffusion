@@ -266,7 +266,7 @@ class GraphDataModule(MyDataModule):
         batch_size: DictConfig,
         gpus: Optional[Union[List[int], str, int]],
         val_percentage: float,
-        overfit: bool,
+        overfit: int,
         **kwargs,
     ):
         super().__init__(datasets, num_workers, batch_size, gpus, val_percentage)

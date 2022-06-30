@@ -6,7 +6,7 @@ data:
   _target_: discrete_diffusion.data.datamodule.GraphDataModule
 
   dataset_name: ENZYMES
-  data_dir: ${oc.env:PROJECT_ROOT}/data/${nn.data.dataset_name}
+  data_dir: ${oc.env:PROJECT_ROOT}/data/${nn.data.dataset_name}/standard
 
   feature_params:
     features_to_consider:
@@ -15,7 +15,7 @@ data:
     #      - num_cycles
 
     max_considered_cycle_len: 4
-  overfit: 2
+  overfit: -1 # If -1 use all dataset
 
   datasets:
     train:
@@ -49,9 +49,9 @@ module:
 
   model:
 
-    _target_: discrete_diffusion.modules.diffusion.Diffusion
-    diffusion_speed: 0.3
-    timesteps: 13
+    _target_: discrete_diffusion.modules.diffusion.AbsorbingStateDiffusion
+    diffusion_speed: 0.01
+    timesteps: 500
     threshold_sample: 0.5
 
     denoise_fn:
