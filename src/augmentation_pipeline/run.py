@@ -50,16 +50,17 @@ def build_callbacks(cfg: ListConfig, *args: Callback) -> List[Callback]:
 
 def run(cfg: DictConfig) -> str:
     # TODO: Load or generate augmented datamodule
-    data_root = PROJECT_ROOT / "data" / cfg.connectivity_generation.nn.data.dataset_name
-    data_dirs = [data_root / "standard"]
+    data_root = PROJECT_ROOT / "data"
+    dataset_name = cfg.connectivity_generation.nn.data.dataset_name
+    data_dirs = [data_root / "standard" / dataset_name]
     if cfg.augmentation_pipeline.connectivity.mode in ["train", "restore"]:
-        data_dirs.append(data_root / "connectivity")
+        data_dirs.append(data_root / "connectivity" / dataset_name)
         if cfg.augmentation_pipeline.connectivity.mode == "train":
             # Override dataset in connectivity_augmented
             run_connectivity_generation(cfg.connectivity_generation)
 
     if cfg.augmentation_pipeline.node_features.mode in ["train", "restore"]:
-        data_dirs.append(data_root / "node_features_augmented")
+        data_dirs.append(data_root / "node_features_augmented" / dataset_name)
         if cfg.augmentation_pipeline.node_features.mode == "train":
             # Override dataset in connectivity_augmented
             # train_data(cfg)

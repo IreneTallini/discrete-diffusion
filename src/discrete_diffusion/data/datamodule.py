@@ -3,12 +3,14 @@ import logging
 from functools import cached_property, partial
 from pathlib import Path
 from typing import List, Optional, Sequence, Union
+from pathlib import PosixPath
 
 import hydra
 import networkx as nx
 import omegaconf
 import pytorch_lightning as pl
 import torch
+import torch_geometric.utils
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader, Dataset, random_split
@@ -21,7 +23,7 @@ from nn_core.common import PROJECT_ROOT
 from nn_core.nn_types import Split
 
 from discrete_diffusion.data.graph_generator import GraphGenerator
-from discrete_diffusion.data.io_utils import load_data_irene, random_split_sequence
+from discrete_diffusion.data.io_utils import random_split_sequence, load_data, load_TU_dataset
 
 # from src.discrete_diffusion.utils import edge_index_to_adj
 
@@ -258,7 +260,7 @@ class SyntheticGraphDataModule(MyDataModule):
 class GraphDataModule(MyDataModule):
     def __init__(
         self,
-        data_dirs: str,
+        data_dirs: List[PosixPath],
         dataset_name: str,
         feature_params,
         datasets: DictConfig,
@@ -274,11 +276,8 @@ class GraphDataModule(MyDataModule):
         self.dataset_name = dataset_name
         self.overfit = overfit
 
-        self.data_list, self.class_to_label_dict, self.features_list = load_data_irene(
-            self.data_dirs,
-            self.dataset_name,
-            feature_params=feature_params,
-        )
+        self.data_list, _ = load_TU_dataset(self.data_dirs, dataset_name)
+        self.features_list = [data.x for data in self.data_list]
 
         ref_graph = self.data_list[0]
         if self.overfit > -1:
