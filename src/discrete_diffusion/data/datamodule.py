@@ -23,7 +23,7 @@ from nn_core.common import PROJECT_ROOT
 from nn_core.nn_types import Split
 
 from discrete_diffusion.data.graph_generator import GraphGenerator
-from discrete_diffusion.data.io_utils import random_split_sequence, load_data, load_TU_dataset
+from discrete_diffusion.data.io_utils import random_split_sequence, load_TU_dataset
 
 # from src.discrete_diffusion.utils import edge_index_to_adj
 

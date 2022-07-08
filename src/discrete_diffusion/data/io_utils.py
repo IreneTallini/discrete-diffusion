@@ -5,6 +5,7 @@ from typing import Dict, List, Tuple
 
 import networkx as nx
 import numpy as np
+import pandas
 import torch
 from torch import Tensor
 from torch.nn import functional as F
@@ -39,9 +40,7 @@ def load_TU_dataset(paths: List[Path], dataset_name):
     for path in paths:
         data_adj = np.loadtxt(path / (dataset_name + "_A.txt"), delimiter=",").astype(int)
         data_node_att = np.loadtxt(path / (dataset_name + "_node_attributes.txt"), delimiter=",")
-        data_node_label = np.loadtxt(path / (dataset_name + "_node_labels.txt"), delimiter=",").astype(int)
         data_graph_indicator = np.loadtxt(path / (dataset_name + "_graph_indicator.txt"), delimiter=",").astype(int)
-        data_graph_labels = np.loadtxt(path / (dataset_name + "_graph_labels.txt"), delimiter=",").astype(int)
 
         data_tuple = list(map(tuple, data_adj))
         print(len(data_tuple))
@@ -52,7 +51,6 @@ def load_TU_dataset(paths: List[Path], dataset_name):
         # add node attributes
         for i in range(data_node_att.shape[0]):
             G.add_node(i + 1, feature=data_node_att[i])
-            G.add_node(i + 1, label=data_node_label[i])
 
         print(G.number_of_nodes())
         print(G.number_of_edges())
@@ -67,7 +65,6 @@ def load_TU_dataset(paths: List[Path], dataset_name):
             nodes = node_list[data_graph_indicator == i + 1]
             G_sub = G.subgraph(nodes)
             graphs.append(G_sub)
-            G_sub.graph["label"] = data_graph_labels[i]
             node_num_list.append(G_sub.number_of_nodes())
         print("average", sum(node_num_list) / len(node_num_list))
         print("all", len(node_num_list))
@@ -91,10 +88,25 @@ def load_TU_dataset(paths: List[Path], dataset_name):
         return graphs_list, features_list
 
 
-def write_TU_format(graph_list: List[nx.Graph]):
+def write_TU_format(graph_list: List[nx.Graph], path):
     data_list = to_data_list(graph_list)
     data_batch = Batch.from_data_list(data_list)
-    np.savetxt('data/connectivity_augmented/ENZYMES/ENZYMES_A.txt', data_batch.edge_index.numpy.int())
+    pandas.DataFrame(
+        data_batch.edge_index.T.numpy() + 1,
+        index=list(range(data_batch.num_edges)),
+        columns=["1", "2"]
+    ).to_csv('data/connectivity_augmented/ENZYMES/ENZYMES_A.txt', header=False, index=False)
+    pandas.DataFrame(
+        data_batch.batch.numpy() + 1,
+        index=list(range(data_batch.num_nodes)),
+        columns=["1"]
+    ).to_csv('data/connectivity_augmented/ENZYMES/ENZYMES_graph_indicator.txt', header=False, index=False)
+    pandas.DataFrame(
+        data_batch.x.numpy(),
+        index=list(range(data_batch.num_nodes)),
+        columns=list(range(data_batch.x.shape[-1]))
+    ).to_csv('data/connectivity_augmented/ENZYMES/ENZYMES_node_attributes.txt',
+             header=False, index=False, float_format='%.6f')
 
 
 def load_data(dir_paths, dataset_name, feature_params):
@@ -161,7 +173,7 @@ def to_data_list(graph_list) -> List[Data]:
         data = Data(
             edge_index=edge_index,
             num_nodes=G.number_of_nodes(),
-            x=torch.tensor([G.nodes[i]["x"] for i in G.nodes])
+            x=torch.tensor([G.nodes[i]["x"][i] for i in G.nodes])
         )
 
         data_list.append(data)
