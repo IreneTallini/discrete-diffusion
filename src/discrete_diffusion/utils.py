@@ -13,9 +13,7 @@ from torch_geometric.utils import to_networkx
 
 def compute_self_similarities(x: torch.Tensor) -> torch.Tensor:
     """
-
     :param x: tensor (num_nodes_in_batch, embedding_dim)
-
     :return: tensor (num_nodes_in_batch, num_nodes_in_batch)
     """
 

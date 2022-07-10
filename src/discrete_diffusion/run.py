@@ -1,16 +1,10 @@
 import logging
-import math
 from typing import List, Optional
 
 import hydra
-import networkx as nx
 import omegaconf
 import pytorch_lightning as pl
 import torch_geometric.data
-import wandb
-from matplotlib import cm
-from matplotlib import pyplot as plt
-from matplotlib.cm import coolwarm
 from omegaconf import DictConfig, ListConfig
 from pytorch_lightning import Callback
 
@@ -72,7 +66,7 @@ def run(cfg: DictConfig) -> str:
     # Instantiate datamodule
     pylogger.info(f"Instantiating <{cfg.nn.data['_target_']}>")
     datamodule: pl.LightningDataModule = hydra.utils.instantiate(
-        cfg.nn.data, graph_generator=cfg.nn.graph_generator, _recursive_=False
+        cfg.nn.data, _recursive_=False
     )
 
     metadata: Optional[MetaData] = getattr(datamodule, "metadata", None)
@@ -134,7 +128,7 @@ def run(cfg: DictConfig) -> str:
     return logger.run_dir
 
 
-@hydra.main(config_path=str(PROJECT_ROOT / "conf" / "connectivity_generation"), config_name="default")
+@hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="default")
 def main(cfg: omegaconf.DictConfig):
     run(cfg)
 
