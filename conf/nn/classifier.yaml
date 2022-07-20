@@ -1,22 +1,27 @@
 data:
   _target_: discrete_diffusion.data.datamodule.GraphDataModule
-
   dataset_name: PROTEINS_full
-  data_dirs:
-    - ${oc.env:PROJECT_ROOT}/data/standard/${nn.data.dataset_name}
-    - ${oc.env:PROJECT_ROOT}/data/connectivity_augmented/${nn.data.dataset_name}
 
-  overfit: 2
+  overfit: -1
 
   datasets:
     train:
       _target_: discrete_diffusion.data.graph_dataset.GraphDataset
+      data_dirs:
+        - ${oc.env:PROJECT_ROOT}/data/standard/${nn.data.dataset_name}
+#        - ${oc.env:PROJECT_ROOT}/data/connectivity_augmented/${nn.data.dataset_name}
+      dataset_names:
+        - ${nn.data.dataset_name}
+#        - ${nn.data.dataset_name}
 
-    val:
-      _target_: discrete_diffusion.data.graph_dataset.GraphDataset
+    val: ${nn.data.datasets.train}
 
     test:
       _target_: discrete_diffusion.data.graph_dataset.GraphDataset
+      data_dirs:
+        - ${oc.env:PROJECT_ROOT}/data/standard/${nn.data.dataset_name}
+      dataset_names:
+        - ${nn.data.dataset_name}
 
   gpus: ${train.trainer.gpus}
 
@@ -34,10 +39,16 @@ data:
 
 
 module:
-  _target_: discrete_diffusion.pl_modules.pl_module.TemplatePLModule
+  _target_: discrete_diffusion.pl_modules.classifier_pl_module.ClassifierPLModule
+
+  standard_datamodule:
+    _target_: discrete_diffusion.pl_modules.classifier_pl_module.ClassifierPLModule
+    model: ${nn.module.model}
+
+  standard_model_ckpt_path: standard/discrete_diffusion/${nn.data.dataset_name}
 
   model:
-    _target_: discrete_diffusion.modules.classifier.Classifier
+    _target_: discrete_diffusion.modules.classifier.classifier.Classifier
     hidden_channels: 128
     num_classes: 2
 

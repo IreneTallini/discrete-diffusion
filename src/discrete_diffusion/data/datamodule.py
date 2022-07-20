@@ -3,7 +3,6 @@ import logging
 from functools import cached_property, partial
 from pathlib import Path
 from typing import List, Optional, Sequence, Union
-from pathlib import PosixPath
 
 import hydra
 import omegaconf
@@ -254,7 +253,6 @@ class SyntheticGraphDataModule(MyDataModule):
 class GraphDataModule(MyDataModule):
     def __init__(
         self,
-        data_dirs: List[PosixPath],
         dataset_name: str,
         datasets: DictConfig,
         num_workers: DictConfig,
@@ -265,54 +263,51 @@ class GraphDataModule(MyDataModule):
         **kwargs,
     ):
         super().__init__(datasets, num_workers, batch_size, gpus, val_percentage)
-        self.data_dirs = [Path(data_dir) for data_dir in data_dirs]
         self.dataset_name = dataset_name
         self.overfit = overfit
-
-        self.data_list, self.features_list = load_TU_dataset(self.data_dirs, [dataset_name]*len(self.data_dirs))
-
-        ref_graph = self.data_list[0]
-        if self.overfit > -1:
-            graphs_list = self.data_list[: self.overfit]
-            features_list = self.features_list[: self.overfit]
-            multiplicity = len(self.data_list) // self.overfit + 1
-            self.data_list = multiplicity * graphs_list
-            self.features_list = multiplicity * features_list
-        self.feature_dim = ref_graph.x.shape[-1] if len(ref_graph.x.shape) > 1 else 1
-        self.ref_graph_edges = ref_graph.edge_index
-        self.ref_graph_feat = ref_graph.x
+        self.setup()
 
     def setup(self, stage: Optional[str] = None):
-
         if (stage is None or stage == "fit") and (self.train_dataset is None and self.val_datasets is None):
 
-            graphs = {}
-            graphs["train"], graphs["val"], graphs["test"] = self.split_train_val_test(self.data_list)
-
             stages = {"train", "val", "test"}
+
             datasets = {}
 
             for stage in stages:
+                logging.info(f"Instantiating {stage} datasets")
                 config = self.datasets[stage]
                 datasets[stage] = hydra.utils.instantiate(
                     config=config,
-                    samples=graphs[stage],
                 )
+
+            ref_graph = datasets["train"][0]
+            self.features_list = datasets["train"].features_list
+            if self.overfit > -1:
+                graphs_list = datasets["train"][: self.overfit]
+                features_list = self.features_list[: self.overfit]
+                multiplicity = len(self.features_list) // self.overfit + 1
+                train_length = multiplicity * len(graphs_list)
+                datasets["train"].samples = (multiplicity * graphs_list)[: int(train_length * 0.9)]
+                datasets["val"].samples = (multiplicity * graphs_list)[int(train_length * 0.9) + 1:]
+                datasets["train"].features_list = (multiplicity * features_list)[: int(train_length * 0.9)]
+                datasets["val"].features_list = (multiplicity * features_list)[int(train_length * 0.9) + 1:]
+                self.features_list = multiplicity * features_list
+            self.feature_dim = len(ref_graph.x[0]) if len(ref_graph.x[0]) > 1 else 1
+            self.ref_graph_edges = ref_graph.edge_index
+            self.ref_graph_feat = ref_graph.x
 
             self.train_dataset = datasets["train"]
             self.val_datasets = [datasets["val"]]
             self.test_datasets = [datasets["test"]]
 
-    def split_train_val_test(self, graphs):
-        split_ratio = {"train": 0.8, "val": 0.1, "test": 0.1}
+    @staticmethod
+    def split_train_val(graphs):
+        split_ratio = {"train": 0.9, "val": 0.1}
 
-        train_val, test = random_split_sequence(graphs, split_ratio["train"] + split_ratio["val"])
+        train, val = random_split_sequence(graphs, split_ratio["train"])
 
-        train, val = random_split_sequence(
-            train_val, split_ratio["train"] / (split_ratio["train"] + split_ratio["val"])
-        )
-
-        return train, val, test
+        return train, val
 
     def get_collate_fn(self, split):
 

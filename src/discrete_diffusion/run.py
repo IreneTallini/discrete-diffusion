@@ -93,7 +93,7 @@ def run(cfg: DictConfig) -> str:
 
     pylogger.info("Logging Reference Dataset")
 
-    ref_batch = next(iter(datamodule.val_dataloader()[0]))
+    ref_batch = next(iter(datamodule.test_dataloader()[0]))
     ref_list = torch_geometric.data.Batch.to_data_list(ref_batch)
     fig, fig_adj = generate_sampled_graphs_figures(ref_list)
     logger.log_image(key="Dataset Example", images=[fig])

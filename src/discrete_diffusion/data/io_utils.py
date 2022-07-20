@@ -9,6 +9,8 @@ from torch import Tensor
 from torch_geometric.data import Data, Batch
 from torch_geometric.utils import from_networkx
 from pathlib import Path
+import logging
+pylogger = logging.getLogger(__name__)
 
 
 def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="pyg"):
@@ -16,24 +18,29 @@ def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="py
     features_list = []
     G = nx.Graph()
     # load d
+    min_labels = 1000
+    max_num_graphs_tmp = []
     for path, dataset_name in zip(paths, dataset_names):
+        data_graph_labels = np.loadtxt(path / (dataset_name + "_graph_labels.txt"), delimiter=",").astype(int)
+        min_labels_tmp = min(data_graph_labels)
+        if min_labels_tmp < min_labels:
+            min_labels = min_labels_tmp
+
+    for path, dataset_name in zip(paths, dataset_names):
+        print(f"reading dataset from {path}")
         data_adj = np.loadtxt(path / (dataset_name + "_A.txt"), delimiter=",").astype(int)
         data_node_att = np.loadtxt(path / (dataset_name + "_node_attributes.txt"), delimiter=",")
         data_graph_indicator = np.loadtxt(path / (dataset_name + "_graph_indicator.txt"), delimiter=",").astype(int)
-        data_graph_labels = np.loadtxt(path / (dataset_name + "_graph_labels.txt"), delimiter=",").astype(int)
-
+        data_graph_labels = \
+            (np.loadtxt(path / (dataset_name + "_graph_labels.txt"), delimiter=",")
+             .astype(int) - min_labels)
         data_tuple = list(map(tuple, data_adj))
-        print(len(data_tuple))
-        print(data_tuple[0])
 
         # add edges
         G.add_edges_from(data_tuple)
         # add node attributes
         for i in range(data_node_att.shape[0]):
-            G.add_node(i + 1, x=data_node_att[i])
-
-        print(G.number_of_nodes())
-        print(G.number_of_edges())
+            G.add_node(i + 1, x=torch.tensor(data_node_att[i]))
 
         # split into graphs
         graph_num = len(data_graph_labels)
@@ -49,10 +56,10 @@ def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="py
             G_sub.graph["label"] = data_graph_labels[i]
             graphs.append(G_sub)
             node_num_list.append(G_sub.number_of_nodes())
-        print("average", sum(node_num_list) / len(node_num_list))
-        print("all", len(node_num_list))
-        node_num_list = np.array(node_num_list)
-        print("selected", len(node_num_list[node_num_list > 10]))
+        pylogger.info(f"number of graphs:{graph_num}")
+        pylogger.info(f"average number of nodes: {sum(node_num_list) / len(node_num_list)}")
+        pylogger.info(f"total number of nodes: {G.number_of_nodes()}")
+        pylogger.info(f"total number of edges: {G.number_of_edges()}")
 
         dictionary = nx.get_node_attributes(graphs[0], "x")
 
@@ -63,14 +70,11 @@ def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="py
         if output_type == "pyg":
             for g in graphs:
                 gr = from_networkx(g)
-                # gr.x = gr.x.float()
-                # features_list.append(gr.x)
-                # delattr(gr, "feature")
                 gr.y = g.graph["label"]
                 graphs_list.append(gr)
+                features_list.append(list(nx.get_node_attributes(g, "x").values()))
         elif output_type == "networkx":
             for g in graphs:
-                # g.x = g.feature
                 graphs_list.append(g)
                 features_list.append(list(nx.get_node_attributes(g, "x").values()))
         else:

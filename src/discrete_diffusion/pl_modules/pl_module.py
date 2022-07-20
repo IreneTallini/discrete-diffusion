@@ -3,9 +3,9 @@ from typing import Any, Mapping, Optional, Sequence, Tuple, Union
 
 import hydra
 import pytorch_lightning as pl
-import torch
 from omegaconf import DictConfig
 from torch.optim import Optimizer
+import torch
 
 from nn_core.model_logging import NNLogger
 

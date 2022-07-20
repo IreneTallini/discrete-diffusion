@@ -1,17 +1,13 @@
 import logging
-from typing import Any, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import List, Optional
 
 import hydra
 import matplotlib.pyplot as plt
-import omegaconf
-import pytorch_lightning as pl
 import torch
 from omegaconf import DictConfig
 from pytorch_lightning.loggers.base import DummyLogger
-from torch.optim import Optimizer
 from torch_geometric.data import Batch
 
-from nn_core.common import PROJECT_ROOT
 from nn_core.model_logging import NNLogger
 
 from discrete_diffusion.data.datamodule import MetaData
