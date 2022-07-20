@@ -1,0 +1,6 @@
+_target_: discrete_diffusion.data.graph_generator.GraphGenerator
+graph_type: "house_graph"
+num_samples: 1000
+
+nx_generator:
+  _target_: networkx.generators.house_graph

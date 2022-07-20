@@ -1,0 +1,86 @@
+defaults:
+  - graph_generator: house_graph
+  - _self_
+
+data:
+  _target_: discrete_diffusion.data.datamodule.GraphDataModule
+
+  dataset_name: ENZYMES
+  data_dirs: "[${oc.env:PROJECT_ROOT}/data/${connectivity_generation.nn.data.dataset_name}/standard]"
+
+  feature_params:
+    features_to_consider:
+      - degree
+      - tags
+    #      - num_cycles
+
+    max_considered_cycle_len: 4
+  overfit: 2
+
+  datasets:
+    train:
+      _target_: discrete_diffusion.data.graph_dataset.GraphDataset
+
+    val:
+      _target_: discrete_diffusion.data.graph_dataset.GraphDataset
+
+    test:
+      _target_: discrete_diffusion.data.graph_dataset.GraphDataset
+
+  gpus: ${connectivity_generation.train.trainer.gpus}
+
+  num_workers:
+    train: 8
+    val: 4
+    test: 4
+
+  batch_size:
+    train: 16
+    val: 16
+    test: 1
+
+  val_percentage: 0.1
+
+
+module:
+  _target_: discrete_diffusion.pl_modules.pl_module.DiffusionPLModule
+  batch_size: ${nn.data.batch_size}
+  num_nodes_samples: -1 #-1 random, n > 0 fix
+
+  model:
+
+    _target_: discrete_diffusion.modules.discrete_diffusion.DiscreteDiffusion
+    diffusion_speed: 0.3
+    timesteps: 13
+    threshold_sample: 0.5
+
+    denoise_fn:
+      _target_: discrete_diffusion.modules.link_predictor.LinkPredictor
+      feature_dim: ???
+      time_dim: 128
+
+      node_embedder:
+        _target_: discrete_diffusion.modules.node_embedder.NodeEmbedderSeparatedTimeCond
+        feature_dim: ???
+        num_mlp_layers: 3
+        embedding_dim: ${connectivity_generation.nn.module.model.denoise_fn.time_dim}
+        hidden_dim: ${connectivity_generation.nn.module.model.denoise_fn.time_dim}
+        num_convs: 4
+        dropout_rate: 0.
+        do_preprocess: true
+        use_batch_norm: true
+        jump_mode: cat
+        num_timesteps: ${connectivity_generation.nn.module.model.timesteps}
+        num_heads: 1
+
+  optimizer:
+    _target_: torch.optim.Adam
+    lr: 0.0001
+
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+    T_0: 10
+    T_mult: 2
+    eta_min: 0 # min value for the lr
+    last_epoch: -1
+    verbose: False
