@@ -4,24 +4,22 @@ data:
 
   overfit: -1
 
+  train_dirs:
+    standard: ${oc.env:PROJECT_ROOT}/data/standard
+    connectivity_augmented: #${oc.env:PROJECT_ROOT}/data/connectivity_augmented
+
+  max_graphs_per_dataset:
+    standard:
+    connectivity_augmented: 600
+
   datasets:
     train:
       _target_: discrete_diffusion.data.graph_dataset.GraphDataset
-      data_dirs:
-        - ${oc.env:PROJECT_ROOT}/data/standard/${nn.data.dataset_name}
-#        - ${oc.env:PROJECT_ROOT}/data/connectivity_augmented/${nn.data.dataset_name}
-      dataset_names:
-        - ${nn.data.dataset_name}
-#        - ${nn.data.dataset_name}
-
-    val: ${nn.data.datasets.train}
-
+    val:
+      _target_: discrete_diffusion.data.graph_dataset.GraphDataset
     test:
       _target_: discrete_diffusion.data.graph_dataset.GraphDataset
-      data_dirs:
-        - ${oc.env:PROJECT_ROOT}/data/standard/${nn.data.dataset_name}
-      dataset_names:
-        - ${nn.data.dataset_name}
+
 
   gpus: ${train.trainer.gpus}
 

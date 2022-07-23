@@ -2,7 +2,7 @@ import json
 import logging
 from functools import cached_property, partial
 from pathlib import Path
-from typing import List, Optional, Sequence, Union
+from typing import List, Optional, Sequence, Tuple, Union
 
 import hydra
 import omegaconf
@@ -18,8 +18,7 @@ from nn_core.common import PROJECT_ROOT
 from nn_core.nn_types import Split
 
 from discrete_diffusion.data.graph_generator import GraphGenerator
-from discrete_diffusion.data.io_utils import random_split_sequence, load_TU_dataset
-
+from discrete_diffusion.io_utils import load_TU_dataset, random_split_sequence, split_sequence
 
 pylogger = logging.getLogger(__name__)
 
@@ -182,8 +181,96 @@ class MyDataModule(pl.LightningDataModule):
             for dataset in self.test_datasets
         ]
 
+    @staticmethod
+    def split_train_val_test(graphs):
+        split_ratio = {"train": 0.8, "val": 0.1, "test": 0.1}
+
+        train_val, test = random_split_sequence(graphs, split_ratio["train"] + split_ratio["val"])
+
+        train, val = random_split_sequence(
+            train_val, split_ratio["train"] / (split_ratio["train"] + split_ratio["val"])
+        )
+
+        return train, val, test
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(" f"{self.datasets=}, " f"{self.num_workers=}, " f"{self.batch_size=})"
+
+
+class GraphDataModule(MyDataModule):
+    def __init__(
+        self,
+        dataset_name: str,
+        datasets: DictConfig,
+        train_dirs: DictConfig,
+        max_graphs_per_dataset: DictConfig,
+        num_workers: DictConfig,
+        batch_size: DictConfig,
+        gpus: Optional[Union[List[int], str, int]],
+        val_percentage: float,
+        overfit: bool,
+        **kwargs,
+    ):
+        super().__init__(datasets, num_workers, batch_size, gpus, val_percentage)
+        self.datasets = datasets
+        self.overfit = overfit
+        self.dataset_name = dataset_name
+        self.max_graphs_per_dataset = max_graphs_per_dataset
+        self.train_dirs = train_dirs
+
+    def setup(self, stage: Optional[str] = None):
+        if (stage is None or stage == "fit") and (self.train_dataset is None and self.val_datasets is None):
+
+            data_list, features_list = load_TU_dataset(
+                paths=[Path(self.train_dirs["standard"]) / self.dataset_name],
+                dataset_names=[self.dataset_name],
+                max_graphs_per_dataset=[self.max_graphs_per_dataset["standard"]],
+            )
+            if self.train_dirs["connectivity_augmented"] is not None:
+                conn_data_list, conn_features_list = load_TU_dataset(
+                    paths=[Path(self.train_dirs["connectivity_augmented"]) / self.dataset_name],
+                    dataset_names=[self.dataset_name],
+                    max_graphs_per_dataset=[self.max_graphs_per_dataset["connectivity_augmented"]],
+                )
+                # It is important that data_list is at the end
+                data_list = conn_data_list + data_list
+                features_list = conn_features_list + features_list
+
+            ref_graph = data_list[0]
+            self.features_list = features_list
+            if self.overfit > -1:
+                data_list = data_list[: self.overfit]
+                features_list = self.features_list[: self.overfit]
+                multiplicity = len(self.features_list) // self.overfit + 1
+                data_list = multiplicity * data_list
+                self.features_list = multiplicity * features_list
+            self.feature_dim = len(ref_graph.x[0]) if len(ref_graph.x[0]) > 1 else 1
+            self.ref_graph_edges = ref_graph.edge_index
+            self.ref_graph_feat = ref_graph.x
+
+            train_list, val_list, test_list = self.split_train_val_test(data_list)
+
+            self.train_dataset = hydra.utils.instantiate(config=self.datasets["train"], data_list=train_list)
+
+            self.val_datasets = [hydra.utils.instantiate(config=self.datasets["val"], data_list=val_list)]
+
+            self.test_datasets = [hydra.utils.instantiate(config=self.datasets["test"], data_list=val_list)]
+
+    @staticmethod
+    def split_train_val_test(graphs):
+        split_ratio = {"train": 0.8, "val": 0.1, "test": 0.1}
+
+        train_val, test = split_sequence(graphs, split_ratio["train"] + split_ratio["val"])
+
+        train, val = random_split_sequence(
+            train_val, split_ratio["train"] / (split_ratio["train"] + split_ratio["val"])
+        )
+
+        return train, val, test
+
+    def get_collate_fn(self, split):
+
+        return Batch.from_data_list
 
 
 class SyntheticGraphDataModule(MyDataModule):
@@ -234,95 +321,6 @@ class SyntheticGraphDataModule(MyDataModule):
             self.val_datasets = [datasets["val"]]
             self.test_datasets = [datasets["test"]]
 
-    def split_train_val_test(self, graphs):
-        split_ratio = {"train": 0.8, "val": 0.1, "test": 0.1}
-
-        train_val, test = random_split_sequence(graphs, split_ratio["train"] + split_ratio["val"])
-
-        train, val = random_split_sequence(
-            train_val, split_ratio["train"] / (split_ratio["train"] + split_ratio["val"])
-        )
-
-        return train, val, test
-
     def get_collate_fn(self, split):
 
         return Batch.from_data_list
-
-
-class GraphDataModule(MyDataModule):
-    def __init__(
-        self,
-        dataset_name: str,
-        datasets: DictConfig,
-        num_workers: DictConfig,
-        batch_size: DictConfig,
-        gpus: Optional[Union[List[int], str, int]],
-        val_percentage: float,
-        overfit: bool,
-        **kwargs,
-    ):
-        super().__init__(datasets, num_workers, batch_size, gpus, val_percentage)
-        self.dataset_name = dataset_name
-        self.overfit = overfit
-        self.setup()
-
-    def setup(self, stage: Optional[str] = None):
-        if (stage is None or stage == "fit") and (self.train_dataset is None and self.val_datasets is None):
-
-            stages = {"train", "val", "test"}
-
-            datasets = {}
-
-            for stage in stages:
-                logging.info(f"Instantiating {stage} datasets")
-                config = self.datasets[stage]
-                datasets[stage] = hydra.utils.instantiate(
-                    config=config,
-                )
-
-            ref_graph = datasets["train"][0]
-            self.features_list = datasets["train"].features_list
-            if self.overfit > -1:
-                graphs_list = datasets["train"][: self.overfit]
-                features_list = self.features_list[: self.overfit]
-                multiplicity = len(self.features_list) // self.overfit + 1
-                train_length = multiplicity * len(graphs_list)
-                datasets["train"].samples = (multiplicity * graphs_list)[: int(train_length * 0.9)]
-                datasets["val"].samples = (multiplicity * graphs_list)[int(train_length * 0.9) + 1:]
-                datasets["train"].features_list = (multiplicity * features_list)[: int(train_length * 0.9)]
-                datasets["val"].features_list = (multiplicity * features_list)[int(train_length * 0.9) + 1:]
-                self.features_list = multiplicity * features_list
-            self.feature_dim = len(ref_graph.x[0]) if len(ref_graph.x[0]) > 1 else 1
-            self.ref_graph_edges = ref_graph.edge_index
-            self.ref_graph_feat = ref_graph.x
-
-            self.train_dataset = datasets["train"]
-            self.val_datasets = [datasets["val"]]
-            self.test_datasets = [datasets["test"]]
-
-    @staticmethod
-    def split_train_val(graphs):
-        split_ratio = {"train": 0.9, "val": 0.1}
-
-        train, val = random_split_sequence(graphs, split_ratio["train"])
-
-        return train, val
-
-    def get_collate_fn(self, split):
-
-        return Batch.from_data_list
-
-
-@hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="default")
-def main(cfg: omegaconf.DictConfig) -> None:
-    """Debug main to quickly develop the DataModule.
-
-    Args:
-        cfg: the hydra configuration
-    """
-    _: pl.LightningDataModule = hydra.utils.instantiate(cfg.data.datamodule, _recursive_=False)
-
-
-if __name__ == "__main__":
-    main()

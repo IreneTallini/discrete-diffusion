@@ -65,9 +65,7 @@ def run(cfg: DictConfig) -> str:
 
     # Instantiate datamodule
     pylogger.info(f"Instantiating <{cfg.nn.data['_target_']}>")
-    datamodule: pl.LightningDataModule = hydra.utils.instantiate(
-        cfg.nn.data, _recursive_=False
-    )
+    datamodule: pl.LightningDataModule = hydra.utils.instantiate(cfg.nn.data, _recursive_=False)
 
     metadata: Optional[MetaData] = getattr(datamodule, "metadata", None)
 
@@ -93,7 +91,7 @@ def run(cfg: DictConfig) -> str:
 
     pylogger.info("Logging Reference Dataset")
 
-    ref_batch = next(iter(datamodule.test_dataloader()[0]))
+    ref_batch = next(iter(datamodule.train_dataloader()))
     ref_list = torch_geometric.data.Batch.to_data_list(ref_batch)
     fig, fig_adj = generate_sampled_graphs_figures(ref_list)
     logger.log_image(key="Dataset Example", images=[fig])
