@@ -6,11 +6,11 @@ data:
 
   train_dirs:
     standard: ${oc.env:PROJECT_ROOT}/data/standard
-    connectivity_augmented: #${oc.env:PROJECT_ROOT}/data/connectivity_augmented
+    connectivity_augmented: ${oc.env:PROJECT_ROOT}/data/connectivity_augmented
 
   max_graphs_per_dataset:
     standard:
-    connectivity_augmented: 600
+    connectivity_augmented:
 
   datasets:
     train:
@@ -39,11 +39,7 @@ data:
 module:
   _target_: discrete_diffusion.pl_modules.classifier_pl_module.ClassifierPLModule
 
-  standard_datamodule:
-    _target_: discrete_diffusion.pl_modules.classifier_pl_module.ClassifierPLModule
-    model: ${nn.module.model}
-
-  standard_model_ckpt_path: standard/discrete_diffusion/${nn.data.dataset_name}
+  standard_model_ckpt_path: ${oc.env:PROJECT_ROOT}/storage/discrete_diffusion/3umps0yl/checkpoints/epoch=99-step=5599.ckpt.zip
 
   model:
     _target_: discrete_diffusion.modules.classifier.classifier.Classifier
