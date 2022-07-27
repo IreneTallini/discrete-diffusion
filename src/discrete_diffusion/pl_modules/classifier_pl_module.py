@@ -5,6 +5,8 @@ from typing import Any, Mapping, Optional
 import torch
 from omegaconf import DictConfig
 
+from nn_core.serialization import NNCheckpointIO
+
 from discrete_diffusion.data.datamodule import MetaData
 from discrete_diffusion.pl_modules.pl_module import TemplatePLModule
 
@@ -12,21 +14,6 @@ pylogger = logging.getLogger(__name__)
 
 
 class ClassifierPLModule(TemplatePLModule):
-    def __init__(self, model: DictConfig, metadata: Optional[MetaData] = None, *args, **kwargs) -> None:
-        super().__init__(model, metadata=metadata, *args, **kwargs)
-
-        self.exists_standard = False
-        if os.path.exists(self.hparams.standard_model_ckpt_path):
-            standard_model = ClassifierPLModule(model=model, metadata=metadata, standard_model_ckpt_path="dummy")
-            self.standard_model = standard_model.load_from_checkpoint(
-                checkpoint_path=self.hparams.standard_model_ckpt_path
-            )
-            self.exists_standard = True
-            pylogger.info("Standard dataset checkpoints present: training model with AUGMENTED dataset")
-        else:
-            # If checkpoints don't exist assume we are training with standard dataset
-            pylogger.info("Standard dataset checkpoints NOT present: training model with STANDARD dataset")
-
     def step(self, batch) -> Mapping[str, Any]:
         logits = self(batch)
         loss_fn = torch.nn.CrossEntropyLoss()
@@ -55,17 +42,6 @@ class ClassifierPLModule(TemplatePLModule):
                 "acc/test": acc.cpu().detach(),
             }
         )
-
-        if self.exists_standard:
-            standard_step_out = self.standard_model.step(batch)
-            standard_logits = standard_step_out["logits"]
-            standard_acc = self.compute_accuracy(standard_logits, torch.tensor(batch.y))
-            self.log_dict(
-                {
-                    "standard_loss/test": standard_step_out["loss"].cpu().detach(),
-                    "standard_acc/test": standard_acc.cpu().detach(),
-                },
-            )
         return step_out
 
     @staticmethod

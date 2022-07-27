@@ -1,3 +1,14 @@
+module:
+  _target_: discrete_diffusion.pl_modules.classifier_pl_module.ClassifierPLModule
+
+  model:
+    _target_: discrete_diffusion.modules.classifier.classifier.Classifier
+    hidden_channels: 128
+    num_classes: 2
+
+standard_model_ckpt: ${oc.env:PROJECT_ROOT}/storage/discrete_diffusion/3umps0yl/checkpoints/epoch=99-step=5599.ckpt.zip
+augmented_model_ckpt: ${oc.env:PROJECT_ROOT}/storage/discrete_diffusion/3umps0yl/checkpoints/epoch=99-step=5599.ckpt.zip
+
 data:
   _target_: discrete_diffusion.data.datamodule.GraphDataModule
   dataset_name: PROTEINS_full
@@ -6,7 +17,7 @@ data:
 
   train_dirs:
     standard: ${oc.env:PROJECT_ROOT}/data/standard
-    connectivity_augmented: ${oc.env:PROJECT_ROOT}/data/connectivity_augmented
+    connectivity_augmented:
 
   max_graphs_per_dataset:
     standard:
@@ -21,7 +32,7 @@ data:
       _target_: discrete_diffusion.data.graph_dataset.GraphDataset
 
 
-  gpus: ${train.trainer.gpus}
+  gpus: 1
 
   num_workers:
     train: 8
@@ -34,24 +45,3 @@ data:
     test: 1
 
   val_percentage: 0.1
-
-
-module:
-  _target_: discrete_diffusion.pl_modules.classifier_pl_module.ClassifierPLModule
-
-  model:
-    _target_: discrete_diffusion.modules.classifier.classifier.Classifier
-    hidden_channels: 128
-    num_classes: 2
-
-  optimizer:
-    _target_: torch.optim.Adam
-    lr: 0.0001
-
-  lr_scheduler:
-    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
-    T_0: 10
-    T_mult: 2
-    eta_min: 0 # min value for the lr
-    last_epoch: -1
-    verbose: False
