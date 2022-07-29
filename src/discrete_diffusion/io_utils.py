@@ -14,7 +14,8 @@ from torch_geometric.utils import from_networkx
 pylogger = logging.getLogger(__name__)
 
 
-def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="pyg", max_graphs_per_dataset=None):
+def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="pyg",
+                    max_graphs_per_dataset=[None], max_num_nodes=-1):
     graphs_list = []
     features_list = []
     G = nx.Graph()
@@ -53,16 +54,19 @@ def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="py
         node_list = np.arange(data_graph_indicator.shape[0]) + 1
         graphs = []
         node_num_list = []
-        random_ids = torch.randint(0, len(data_graph_labels), size=(graph_num,)).tolist()
-        for idx in random_ids:
+        count = 0
+        while len(graphs) < graph_num or count < len(data_graph_labels):
+            rand_id = torch.randint(0, len(data_graph_labels), size=(1,)).tolist()[0]
             # find the nodes for each graph
-            nodes = node_list[data_graph_indicator == idx + 1]
+            nodes = node_list[data_graph_indicator == rand_id + 1]
             G_sub = nx.Graph(G.subgraph(nodes))
-            relabeling = {node: n for node, n in zip(G_sub.nodes, range(1, len(G_sub.nodes) + 1))}
-            G_sub = nx.relabel_nodes(G_sub, relabeling)
-            G_sub.graph["label"] = data_graph_labels[idx]
-            graphs.append(G_sub)
-            node_num_list.append(G_sub.number_of_nodes())
+            count += 1
+            if G_sub.number_of_nodes() <= max_num_nodes or max_num_nodes == -1:
+                relabeling = {node: n for node, n in zip(G_sub.nodes, range(1, len(G_sub.nodes) + 1))}
+                G_sub = nx.relabel_nodes(G_sub, relabeling)
+                G_sub.graph["label"] = data_graph_labels[rand_id]
+                graphs.append(G_sub)
+                node_num_list.append(G_sub.number_of_nodes())
         pylogger.info(f"number of graphs: {graph_num}")
         pylogger.info(f"average number of nodes: {sum(node_num_list) / len(node_num_list)}")
 

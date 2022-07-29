@@ -1,3 +1,5 @@
 *
 
 !.gitignore
+!split_test.py
+!README.txt

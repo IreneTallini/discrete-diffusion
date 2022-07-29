@@ -1,14 +1,13 @@
 import torch
-from torch.nn import Linear
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, global_mean_pool
+from torch.nn import Linear
 from torch_geometric.data import Data
+from torch_geometric.nn import GCNConv, global_mean_pool
 
 
 class Classifier(torch.nn.Module):
     def __init__(self, feature_dim, hidden_channels, num_classes, seed=12345):
         super().__init__()
-        torch.manual_seed(seed)
 
         self.conv1 = GCNConv(feature_dim, hidden_channels)
         self.conv2 = GCNConv(hidden_channels, hidden_channels)
