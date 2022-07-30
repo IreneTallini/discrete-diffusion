@@ -36,10 +36,9 @@ def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="py
             np.loadtxt(path / (dataset_name + "_graph_labels.txt"), delimiter=",").astype(int) - min_labels
         )
 
-        if max_graphs_per_dataset[0] is None:
+        if max_graphs_per_dataset[0] is None or max_graphs_per_dataset[dataset_id] > len(data_graph_labels):
             graph_num = len(data_graph_labels)
         else:
-            assert max_graphs_per_dataset[dataset_id] <= len(data_graph_labels)
             graph_num = max_graphs_per_dataset[dataset_id]
 
         data_tuple = list(map(tuple, data_adj))

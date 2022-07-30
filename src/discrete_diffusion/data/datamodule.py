@@ -201,8 +201,11 @@ class GraphDataModule(MyDataModule):
     def __init__(
         self,
         dataset_name: str,
+        augmentation_method: str,
         datasets: DictConfig,
         train_dirs: DictConfig,
+        val_dir: str,
+        test_dir: str,
         max_graphs_per_dataset: DictConfig,
         num_workers: DictConfig,
         batch_size: DictConfig,
@@ -217,6 +220,9 @@ class GraphDataModule(MyDataModule):
         self.dataset_name = dataset_name
         self.max_graphs_per_dataset = max_graphs_per_dataset
         self.train_dirs = train_dirs
+        self.val_dir = val_dir
+        self.test_dir = test_dir
+        self.augmentation_method = augmentation_method
 
     def setup(self, stage: Optional[str] = None):
         if (stage is None or stage == "fit") and (self.train_dataset is None and self.val_datasets is None):
@@ -227,12 +233,13 @@ class GraphDataModule(MyDataModule):
                 max_graphs_per_dataset=[self.max_graphs_per_dataset["standard"]],
             )
             if self.train_dirs["connectivity_augmented"] is not None:
+                path = Path(self.train_dirs["connectivity_augmented"]) / self.dataset_name / self.augmentation_method
                 conn_data_list, conn_features_list = load_TU_dataset(
-                    paths=[Path(self.train_dirs["connectivity_augmented"]) / self.dataset_name],
+                    paths=[path],
                     dataset_names=[self.dataset_name],
                     max_graphs_per_dataset=[self.max_graphs_per_dataset["connectivity_augmented"]],
                 )
-                # It is important that data_list is at the end
+
                 data_list = conn_data_list + data_list
                 features_list = conn_features_list + features_list
 
@@ -248,19 +255,35 @@ class GraphDataModule(MyDataModule):
             self.ref_graph_edges = ref_graph.edge_index
             self.ref_graph_feat = ref_graph.x
 
-            train_list, val_list, test_list = self.split_train_val_test(data_list)
+            self.train_dataset = hydra.utils.instantiate(config=self.datasets["train"], data_list=data_list)
 
-            self.train_dataset = hydra.utils.instantiate(config=self.datasets["train"], data_list=train_list)
+            if self.overfit > -1:
+                self.val_datasets = [hydra.utils.instantiate(config=self.datasets["train"],
+                                                             data_list=data_list[:int(0.1 * len(data_list))])]
+                self.test_datasets = [hydra.utils.instantiate(config=self.datasets["train"],
+                                                              data_list=data_list[:int(0.1 * len(data_list))])]
+            else:
+                val_data_list, _ = load_TU_dataset(
+                    paths=[Path(self.val_dir) / self.dataset_name],
+                    dataset_names=[self.dataset_name],
+                    max_graphs_per_dataset=[0.1 * len(data_list)],
+                )
 
-            self.val_datasets = [hydra.utils.instantiate(config=self.datasets["val"], data_list=val_list)]
+                self.val_datasets = [hydra.utils.instantiate(config=self.datasets["val"], data_list=val_data_list)]
 
-            self.test_datasets = [hydra.utils.instantiate(config=self.datasets["test"], data_list=val_list)]
+                test_data_list, _ = load_TU_dataset(
+                    paths=[Path(self.test_dir) / self.dataset_name],
+                    dataset_names=[self.dataset_name],
+                    max_graphs_per_dataset=[0.1 * len(data_list)],
+                )
+
+                self.val_datasets = [hydra.utils.instantiate(config=self.datasets["test"], data_list=test_data_list)]
 
     @staticmethod
     def split_train_val_test(graphs):
         split_ratio = {"train": 0.8, "val": 0.1, "test": 0.1}
 
-        train_val, test = split_sequence(graphs, split_ratio["train"] + split_ratio["val"])
+        train_val, test = random_split_sequence(graphs, split_ratio["train"] + split_ratio["val"])
 
         train, val = random_split_sequence(
             train_val, split_ratio["train"] / (split_ratio["train"] + split_ratio["val"])

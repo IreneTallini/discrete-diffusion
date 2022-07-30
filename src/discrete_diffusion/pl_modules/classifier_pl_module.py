@@ -1,13 +1,8 @@
 import logging
-import os.path
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping
 
 import torch
-from omegaconf import DictConfig
 
-from nn_core.serialization import NNCheckpointIO
-
-from discrete_diffusion.data.datamodule import MetaData
 from discrete_diffusion.pl_modules.pl_module import TemplatePLModule
 
 pylogger = logging.getLogger(__name__)
@@ -17,14 +12,14 @@ class ClassifierPLModule(TemplatePLModule):
     def step(self, batch) -> Mapping[str, Any]:
         logits = self(batch)
         loss_fn = torch.nn.CrossEntropyLoss()
-        y = torch.tensor(batch.y).type_as(batch.x)
+        y = torch.tensor(batch.y).type_as(logits).long()
         loss = loss_fn(input=logits, target=y)
         return {"loss": loss, "logits": logits}
 
     def validation_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
         step_out = self.step(batch)
         logits = step_out["logits"]
-        acc = self.compute_accuracy(logits, torch.tensor(batch.y).type_as(batch.x))
+        acc = self.compute_accuracy(logits, torch.tensor(batch.y).type_as(logits).long())
         self.log_dict(
             {"loss/val": step_out["loss"].cpu().detach(), "acc/val": acc.cpu().detach()},
             on_step=False,
@@ -35,7 +30,7 @@ class ClassifierPLModule(TemplatePLModule):
     def test_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
         step_out = self.step(batch)
         logits = step_out["logits"]
-        acc = self.compute_accuracy(logits, torch.tensor(batch.y))
+        acc = self.compute_accuracy(logits, torch.tensor(batch.y).type_as(logits).long())
         self.log_dict(
             {
                 "loss/test": step_out["loss"].cpu().detach(),
