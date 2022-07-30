@@ -2,6 +2,8 @@ wandb
 multirun.yaml
 storage
 outputs
+gdrive
+tmp
 
 # ignore the _version.py file
 _version.py
