@@ -18,11 +18,11 @@ pylogger = logging.getLogger(__name__)
 
 def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="pyg",
                     max_graphs_per_dataset=[None], max_num_nodes=-1, iso_test=False):
-    graphs_list = []
+    big_graphs_list = []
     features_list = []
     G = nx.Graph()
     # load d
-    min_labels = 1000
+    # min_labels = 1000
     # for path, dataset_name in zip(paths, dataset_names):
     #     data_graph_labels = np.loadtxt(path / (dataset_name + "_graph_labels.txt"), delimiter=",").astype(int)
     #     min_labels_tmp = min(data_graph_labels)
@@ -37,6 +37,8 @@ def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="py
         data_graph_labels = (
             np.loadtxt(path / (dataset_name + "_graph_labels.txt"), delimiter=",").astype(int)# - min_labels + 1
         )
+
+        graphs_list = []
 
         if max_graphs_per_dataset[0] is None or max_graphs_per_dataset[dataset_id] > len(data_graph_labels):
             graph_num = len(data_graph_labels)
@@ -87,10 +89,11 @@ def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="py
             else:
                 pylogger.info("indices of nodes not isomorphic to the ones loaded with loadTUDataset:")
                 pylogger.info(iso_count)
+        big_graphs_list.extend(graphs_list)
 
-        if output_type == "pyg":
-            graphs_list = to_data_list(graphs_list)
-    return graphs_list, features_list
+    if output_type == "pyg":
+        big_graphs_list = to_data_list(big_graphs_list)
+    return big_graphs_list, features_list
 
 
 def write_TU_format(graph_list: List[nx.Graph], path: Path, dataset_name):
