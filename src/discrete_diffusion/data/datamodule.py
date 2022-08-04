@@ -277,7 +277,7 @@ class GraphDataModule(MyDataModule):
                     max_graphs_per_dataset=[0.1 * len(data_list)],
                 )
 
-                self.val_datasets = [hydra.utils.instantiate(config=self.datasets["test"], data_list=test_data_list)]
+                self.test_datasets = [hydra.utils.instantiate(config=self.datasets["test"], data_list=test_data_list)]
 
     @staticmethod
     def split_train_val_test(graphs):
