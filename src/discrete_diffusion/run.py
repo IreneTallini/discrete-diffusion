@@ -1,4 +1,5 @@
 import logging
+import warnings
 from typing import List, Optional
 
 import hydra
@@ -50,6 +51,10 @@ def run(cfg: DictConfig) -> str:
     Returns:
         the run directory inside the storage_dir used by the current experiment
     """
+
+    # TODO: remove warning
+    warnings.filterwarnings("ignore", category=UserWarning)
+
     seed_index_everything(cfg.train)
 
     fast_dev_run: bool = cfg.train.trainer.fast_dev_run

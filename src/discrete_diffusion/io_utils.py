@@ -86,10 +86,11 @@ def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="py
                         iso_count.append(idxc)
                         break
             if len(iso_count) == len(graphs_list):
-                pylogger.info("everything isomorphic to loadTUDataset!")
+                pylogger.info("everything isomorphic to loadTUDataset!!")
             else:
                 pylogger.info("indices of nodes not isomorphic to the ones loaded with loadTUDataset:")
-                pylogger.info(iso_count)
+                pylogger.info(set(range(1, len(graphs_list))).difference(set(iso_count)))
+
         big_graphs_list.extend(graphs_list)
 
     random.Random(5).shuffle(big_graphs_list)

@@ -1,15 +1,15 @@
 data:
   _target_: discrete_diffusion.data.datamodule.GraphDataModule
   dataset_name: PROTEINS_50
-  augmentation_method: edp-gnn
+  augmentation_method: gdss
 
   overfit: -1
 
   train_dirs:
     standard: ${oc.env:PROJECT_ROOT}/data/standard_train
-    connectivity_augmented: ${oc.env:PROJECT_ROOT}/data/connectivity_augmented
+    connectivity_augmented: #${oc.env:PROJECT_ROOT}/data/connectivity_augmented
   val_dir: ${oc.env:PROJECT_ROOT}/data/standard_val
-  test_dir: ${oc.env:PROJECT_ROOT}/data/standard_test
+  test_dir: ${oc.env:PROJECT_ROOT}/data/standard_val
 
   max_graphs_per_dataset:
     standard: -1
@@ -27,9 +27,9 @@ data:
   gpus: ${train.trainer.gpus}
 
   num_workers:
-    train: 8
-    val: 4
-    test: 4
+    train: 16
+    val: 16
+    test: 16
 
   batch_size:
     train: 16

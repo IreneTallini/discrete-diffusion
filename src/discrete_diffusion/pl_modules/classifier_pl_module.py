@@ -14,14 +14,17 @@ class ClassifierPLModule(TemplatePLModule):
         loss_fn = torch.nn.CrossEntropyLoss()
         y = torch.tensor(batch.y).type_as(logits).long()
         loss = loss_fn(input=logits, target=y)
-        return {"loss": loss, "logits": logits}
+        return {"loss": loss, "logits": logits.detach()}
 
     def validation_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
         step_out = self.step(batch)
         logits = step_out["logits"]
         acc = self.compute_accuracy(logits, torch.tensor(batch.y).type_as(logits).long())
         self.log_dict(
-            {"loss/val": step_out["loss"].cpu().detach(), "acc/val": acc.cpu().detach()},
+            {
+                "loss/val": step_out["loss"].cpu().detach(),
+                "acc/val": acc.cpu().detach()
+            },
             on_step=False,
             on_epoch=True,
             prog_bar=True,
@@ -43,4 +46,4 @@ class ClassifierPLModule(TemplatePLModule):
     def compute_accuracy(logits, gt_labels):
         labels_prob = torch.sigmoid(logits)
         _, labels = torch.max(labels_prob, dim=1)
-        return torch.sum(labels == gt_labels) / len(labels)
+        return torch.sum(torch.tensor(labels == gt_labels)) / len(labels)
