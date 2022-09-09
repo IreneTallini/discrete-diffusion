@@ -9,7 +9,7 @@ data:
     standard: ${oc.env:PROJECT_ROOT}/data/standard_train
     connectivity_augmented: #${oc.env:PROJECT_ROOT}/data/connectivity_augmented
   val_dir: ${oc.env:PROJECT_ROOT}/data/standard_val
-  test_dir: ${oc.env:PROJECT_ROOT}/data/standard_val
+  test_dir: ${oc.env:PROJECT_ROOT}/data/standard_test
 
   max_graphs_per_dataset:
     standard: -1
