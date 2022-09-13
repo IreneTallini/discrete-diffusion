@@ -1,16 +1,11 @@
 import logging
-import math
+import warnings
 from typing import List, Optional
 
 import hydra
-import networkx as nx
 import omegaconf
 import pytorch_lightning as pl
 import torch_geometric.data
-import wandb
-from matplotlib import cm
-from matplotlib import pyplot as plt
-from matplotlib.cm import coolwarm
 from omegaconf import DictConfig, ListConfig
 from pytorch_lightning import Callback
 
@@ -56,6 +51,10 @@ def run(cfg: DictConfig) -> str:
     Returns:
         the run directory inside the storage_dir used by the current experiment
     """
+
+    # TODO: remove warning
+    warnings.filterwarnings("ignore", category=UserWarning)
+
     seed_index_everything(cfg.train)
 
     fast_dev_run: bool = cfg.train.trainer.fast_dev_run
@@ -71,9 +70,7 @@ def run(cfg: DictConfig) -> str:
 
     # Instantiate datamodule
     pylogger.info(f"Instantiating <{cfg.nn.data['_target_']}>")
-    datamodule: pl.LightningDataModule = hydra.utils.instantiate(
-        cfg.nn.data, graph_generator=cfg.nn.graph_generator, _recursive_=False
-    )
+    datamodule: pl.LightningDataModule = hydra.utils.instantiate(cfg.nn.data, _recursive_=False)
 
     metadata: Optional[MetaData] = getattr(datamodule, "metadata", None)
 
@@ -99,7 +96,7 @@ def run(cfg: DictConfig) -> str:
 
     pylogger.info("Logging Reference Dataset")
 
-    ref_batch = next(iter(datamodule.val_dataloader()[0]))
+    ref_batch = next(iter(datamodule.train_dataloader()))
     ref_list = torch_geometric.data.Batch.to_data_list(ref_batch)
     fig, fig_adj = generate_sampled_graphs_figures(ref_list)
     logger.log_image(key="Dataset Example", images=[fig])

@@ -1,21 +1,18 @@
-from typing import Dict, List
+from pathlib import Path
+from typing import List
 
 import hydra
-import networkx as nx
-import numpy as np
 import omegaconf
-import torch
-from hydra.utils import instantiate
-from omegaconf import DictConfig
 from torch.utils.data import Dataset
-from torch_geometric.data import Data
 
 from nn_core.common import PROJECT_ROOT
 
+from discrete_diffusion.io_utils import load_TU_dataset
+
 
 class GraphDataset(Dataset):
-    def __init__(self, samples: List[Data]):
-        self.samples = samples
+    def __init__(self, data_list):
+        self.samples = data_list
 
     def __len__(self):
         return len(self.samples)

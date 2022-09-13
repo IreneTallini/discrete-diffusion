@@ -1,13 +1,11 @@
-# metadata specialised for each experiment
 core:
   project_name: discrete_diffusion
   storage_dir: ${oc.env:PROJECT_ROOT}/storage
   version: 0.0.1
-  tags: develop
+  tags: prova
 
 defaults:
-  - hydra: default
-  - nn: graph
+  - nn: classifier
   - train: default
   - _self_ # as last argument to allow the override of parameters via this main config
 #    Decomment this parameter to get parallel job running

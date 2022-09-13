@@ -17,10 +17,8 @@ class GroundTruthBackward(nn.Module):
 
     def forward(self, x: Batch, t: torch.Tensor) -> torch.Tensor:
         """
-
         :param x: Batch of IDENTICAL data
         :param t: tensor of IDENTIAL times
-
         :return: tensor (all_possible_edges_batch, )
         """
         ref_graph = get_data_from_edge_index(self.ref_graph_edges, self.ref_graph_feat)
@@ -32,11 +30,9 @@ class GroundTruthBackward(nn.Module):
     def backward_diffusion(self, x_start_batch: Batch, t_batch: torch.Tensor, x_t_batch: Batch) -> torch.Tensor:
         """
         Compute q(xt-1 | xt,x0) = (Q0_{:,xt} x Qt-1_{x0,:}) / Qt_{x0,xt}
-
         :param x_start_batch:
         :param t_batch:
         :param x_t_batch:
-
         :return: tensor (num_possible_edges_batch, 2)
         """
         batch_size = x_start_batch.num_graphs

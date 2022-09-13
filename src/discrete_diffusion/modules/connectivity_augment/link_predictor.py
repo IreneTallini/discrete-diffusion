@@ -17,10 +17,8 @@ class LinkPredictor(nn.Module):
 
     def forward(self, x: Batch, t: torch.Tensor) -> torch.Tensor:
         """
-
         :param x:
         :param t:
-
         :return: tensor (all_possible_edges_batch, )
         """
         graph_sizes = get_graph_sizes_from_batch(x)

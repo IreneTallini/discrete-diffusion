@@ -2,29 +2,23 @@ import json
 import logging
 from functools import cached_property, partial
 from pathlib import Path
-from typing import List, Optional, Sequence, Union
+from typing import List, Optional, Sequence, Tuple, Union
 
 import hydra
-import networkx as nx
 import omegaconf
 import pytorch_lightning as pl
-import torch
 from hydra.utils import instantiate
 from omegaconf import DictConfig
-from torch.utils.data import DataLoader, Dataset, random_split
+from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.dataloader import default_collate
 from torch_geometric.data import Batch, Data
 from torch_geometric.utils import from_networkx
-from torchvision import transforms
 
 from nn_core.common import PROJECT_ROOT
 from nn_core.nn_types import Split
 
 from discrete_diffusion.data.graph_generator import GraphGenerator
-from discrete_diffusion.data.io_utils import load_data_irene, random_split_sequence
-
-# from src.discrete_diffusion.utils import edge_index_to_adj
-
+from discrete_diffusion.io_utils import load_TU_dataset, random_split_sequence, split_sequence
 
 pylogger = logging.getLogger(__name__)
 
@@ -187,8 +181,119 @@ class MyDataModule(pl.LightningDataModule):
             for dataset in self.test_datasets
         ]
 
+    @staticmethod
+    def split_train_val_test(graphs):
+        split_ratio = {"train": 0.8, "val": 0.1, "test": 0.1}
+
+        train_val, test = random_split_sequence(graphs, split_ratio["train"] + split_ratio["val"])
+
+        train, val = random_split_sequence(
+            train_val, split_ratio["train"] / (split_ratio["train"] + split_ratio["val"])
+        )
+
+        return train, val, test
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(" f"{self.datasets=}, " f"{self.num_workers=}, " f"{self.batch_size=})"
+
+
+class GraphDataModule(MyDataModule):
+    def __init__(
+        self,
+        dataset_name: str,
+        augmentation_method: str,
+        datasets: DictConfig,
+        train_dirs: DictConfig,
+        val_dir: str,
+        test_dir: str,
+        max_graphs_per_dataset: DictConfig,
+        num_workers: DictConfig,
+        batch_size: DictConfig,
+        gpus: Optional[Union[List[int], str, int]],
+        val_percentage: float,
+        overfit: bool,
+        **kwargs,
+    ):
+        super().__init__(datasets, num_workers, batch_size, gpus, val_percentage)
+        self.datasets = datasets
+        self.overfit = overfit
+        self.dataset_name = dataset_name
+        self.max_graphs_per_dataset = max_graphs_per_dataset
+        self.train_dirs = train_dirs
+        self.val_dir = val_dir
+        self.test_dir = test_dir
+        self.augmentation_method = augmentation_method
+
+    def setup(self, stage: Optional[str] = None):
+        if (stage is None or stage == "fit") and (self.train_dataset is None and self.val_datasets is None):
+
+            data_list, features_list = load_TU_dataset(
+                paths=[Path(self.train_dirs["standard"]) / self.dataset_name],
+                dataset_names=[self.dataset_name],
+                max_graphs_per_dataset=[self.max_graphs_per_dataset["standard"]],
+            )
+            if self.train_dirs["connectivity_augmented"] is not None:
+                path = Path(self.train_dirs["connectivity_augmented"]) / self.dataset_name / self.augmentation_method
+                conn_data_list, conn_features_list = load_TU_dataset(
+                    paths=[path],
+                    dataset_names=[self.dataset_name],
+                    max_graphs_per_dataset=[self.max_graphs_per_dataset["connectivity_augmented"]],
+                )
+
+                data_list = conn_data_list + data_list
+                features_list = conn_features_list + features_list
+
+            ref_graph = data_list[0]
+            self.features_list = features_list
+            if self.overfit > -1:
+                data_list = data_list[: self.overfit]
+                features_list = self.features_list[: self.overfit]
+                multiplicity = len(self.features_list) // self.overfit + 1
+                data_list = multiplicity * data_list
+                self.features_list = multiplicity * features_list
+            self.feature_dim = len(ref_graph.x[0]) if len(ref_graph.x[0]) > 1 else 1
+            self.ref_graph_edges = ref_graph.edge_index
+            self.ref_graph_feat = ref_graph.x
+
+            self.train_dataset = hydra.utils.instantiate(config=self.datasets["train"], data_list=data_list)
+
+            if self.overfit > -1:
+                self.val_datasets = [hydra.utils.instantiate(config=self.datasets["train"],
+                                                             data_list=data_list[:int(0.1 * len(data_list))])]
+                self.test_datasets = [hydra.utils.instantiate(config=self.datasets["train"],
+                                                              data_list=data_list[:int(0.1 * len(data_list))])]
+            else:
+                val_data_list, _ = load_TU_dataset(
+                    paths=[Path(self.val_dir) / self.dataset_name],
+                    dataset_names=[self.dataset_name],
+                    max_graphs_per_dataset=[0.1 * len(data_list)],
+                )
+
+                self.val_datasets = [hydra.utils.instantiate(config=self.datasets["val"], data_list=val_data_list)]
+
+                test_data_list, _ = load_TU_dataset(
+                    paths=[Path(self.test_dir) / self.dataset_name],
+                    dataset_names=[self.dataset_name],
+                    max_graphs_per_dataset=[0.1 * len(data_list)],
+                )
+
+                self.test_datasets = [hydra.utils.instantiate(config=self.datasets["test"], data_list=test_data_list)]
+
+    @staticmethod
+    def split_train_val_test(graphs):
+        split_ratio = {"train": 0.8, "val": 0.1, "test": 0.1}
+
+        train_val, test = random_split_sequence(graphs, split_ratio["train"] + split_ratio["val"])
+
+        train, val = random_split_sequence(
+            train_val, split_ratio["train"] / (split_ratio["train"] + split_ratio["val"])
+        )
+
+        return train, val, test
+
+    def get_collate_fn(self, split):
+
+        return Batch.from_data_list
 
 
 class SyntheticGraphDataModule(MyDataModule):
@@ -239,104 +344,6 @@ class SyntheticGraphDataModule(MyDataModule):
             self.val_datasets = [datasets["val"]]
             self.test_datasets = [datasets["test"]]
 
-    def split_train_val_test(self, graphs):
-        split_ratio = {"train": 0.8, "val": 0.1, "test": 0.1}
-
-        train_val, test = random_split_sequence(graphs, split_ratio["train"] + split_ratio["val"])
-
-        train, val = random_split_sequence(
-            train_val, split_ratio["train"] / (split_ratio["train"] + split_ratio["val"])
-        )
-
-        return train, val, test
-
     def get_collate_fn(self, split):
 
         return Batch.from_data_list
-
-
-class GraphDataModule(MyDataModule):
-    def __init__(
-        self,
-        data_dir: str,
-        dataset_name: str,
-        feature_params,
-        datasets: DictConfig,
-        num_workers: DictConfig,
-        batch_size: DictConfig,
-        gpus: Optional[Union[List[int], str, int]],
-        val_percentage: float,
-        overfit: int,
-        **kwargs,
-    ):
-        super().__init__(datasets, num_workers, batch_size, gpus, val_percentage)
-        self.data_dir = data_dir
-        self.dataset_name = dataset_name
-        self.overfit = overfit
-
-        self.data_list, self.class_to_label_dict, self.features_list = load_data_irene(
-            self.data_dir,
-            self.dataset_name,
-            feature_params=feature_params,
-        )
-
-        ref_graph = self.data_list[0]
-        if self.overfit > -1:
-            graphs_list = self.data_list[: self.overfit]
-            features_list = self.features_list[: self.overfit]
-            multiplicity = len(self.data_list) // self.overfit + 1
-            self.data_list = multiplicity * graphs_list
-            self.features_list = multiplicity * features_list
-        self.feature_dim = ref_graph.x.shape[-1] if len(ref_graph.x.shape) > 1 else 1
-        self.ref_graph_edges = ref_graph.edge_index
-        self.ref_graph_feat = ref_graph.x
-
-    def setup(self, stage: Optional[str] = None):
-
-        if (stage is None or stage == "fit") and (self.train_dataset is None and self.val_datasets is None):
-
-            graphs = {}
-            graphs["train"], graphs["val"], graphs["test"] = self.split_train_val_test(self.data_list)
-
-            stages = {"train", "val", "test"}
-            datasets = {}
-
-            for stage in stages:
-                config = self.datasets[stage]
-                datasets[stage] = hydra.utils.instantiate(
-                    config=config,
-                    samples=graphs[stage],
-                )
-
-            self.train_dataset = datasets["train"]
-            self.val_datasets = [datasets["val"]]
-            self.test_datasets = [datasets["test"]]
-
-    def split_train_val_test(self, graphs):
-        split_ratio = {"train": 0.8, "val": 0.1, "test": 0.1}
-
-        train_val, test = random_split_sequence(graphs, split_ratio["train"] + split_ratio["val"])
-
-        train, val = random_split_sequence(
-            train_val, split_ratio["train"] / (split_ratio["train"] + split_ratio["val"])
-        )
-
-        return train, val, test
-
-    def get_collate_fn(self, split):
-
-        return Batch.from_data_list
-
-
-@hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="default")
-def main(cfg: omegaconf.DictConfig) -> None:
-    """Debug main to quickly develop the DataModule.
-
-    Args:
-        cfg: the hydra configuration
-    """
-    _: pl.LightningDataModule = hydra.utils.instantiate(cfg.data.datamodule, _recursive_=False)
-
-
-if __name__ == "__main__":
-    main()

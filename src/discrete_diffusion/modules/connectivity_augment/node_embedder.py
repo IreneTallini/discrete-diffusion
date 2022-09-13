@@ -1,11 +1,9 @@
-import torch
 import torch.nn as nn
 from torch import repeat_interleave
-from torch.nn import Linear, ReLU, Sequential
-from torch_geometric.nn import GATConv, GINConv, GraphNorm, JumpingKnowledge
+from torch_geometric.nn import GATConv, JumpingKnowledge
 
-from discrete_diffusion.modules.mlp import MLP
-from discrete_diffusion.utils import get_example_from_batch, get_graph_sizes_from_batch
+from discrete_diffusion.modules.connectivity_augment.mlp import MLP
+from discrete_diffusion.utils import get_graph_sizes_from_batch
 
 
 class NodeEmbedder(nn.Module):
@@ -96,7 +94,6 @@ class NodeEmbedder(nn.Module):
     def forward(self, batch, t):
         """
         Embeds a batch of graphs given as a single large graph
-
         :param batch: Batch containing graphs to embed
         :return: embedded graphs, each graph embedded as a point in R^{E}
         """
@@ -209,7 +206,6 @@ class NodeEmbedder2(nn.Module):
     def forward(self, batch, timesteps):
         """
         Embeds a batch of graphs given as a single large graph
-
         :param batch: Batch containing graphs to embed
         :return: embedded graphs, each graph embedded as a point in R^{E}
         """

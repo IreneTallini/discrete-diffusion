@@ -8,7 +8,7 @@
     <a href="https://black.readthedocs.io/en/stable/"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
 </p>
 
-torch inplementation of discrete diffusion generative models as in https://arxiv.org/abs/2107.03006
+torch implementation of discrete diffusion generative models as in https://arxiv.org/abs/2107.03006
 
 
 ## Installation
@@ -25,7 +25,7 @@ pip install git+ssh://git@github.com/IreneTallini/discrete_diffusion.git
 
 ## Development installation
 
-Setup the development environment:
+Setup the development environment: tested with python 3.9, torch 1.12, cuda 11.6
 
 ```bash
 git clone git@github.com:IreneTallini/discrete_diffusion.git
@@ -34,6 +34,7 @@ conda env create -f env.yaml
 conda activate discrete_diffusion
 pre-commit install
 ```
+Install torch geometric by hand: https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html
 
 Run the tests:
 

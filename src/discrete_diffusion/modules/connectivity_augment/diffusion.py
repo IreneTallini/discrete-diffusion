@@ -88,9 +88,7 @@ class Diffusion(nn.Module):
     def sample_timesteps(self, x_start: Batch) -> torch.Tensor:
         """
         Sample a batch of random timesteps.
-
         :param x_start:
-
         :return:
         """
         batch_size = x_start.num_graphs
@@ -99,10 +97,8 @@ class Diffusion(nn.Module):
 
     def forward_diffusion(self, x_start: Batch, random_timesteps: torch.Tensor) -> Batch:
         """
-
         :param x_start:
         :param random_timesteps:
-
         :return:
         """
         batch_size = x_start.num_graphs
@@ -129,11 +125,9 @@ class Diffusion(nn.Module):
     def backward_diffusion(self, x_start_batch: Batch, t_batch: torch.Tensor, x_t_batch: Batch) -> torch.Tensor:
         """
         Compute q(xt-1 | xt,x0) = (Q0_{:,xt} x Qt-1_{x0,:}) / Qt_{x0,xt}
-
         :param x_start_batch:
         :param t_batch:
         :param x_t_batch:
-
         :return: tensor (num_possible_edges_batch, 2)
         """
         batch_size = x_start_batch.num_graphs
@@ -238,7 +232,6 @@ class Diffusion(nn.Module):
     def sample(self, features_list, num_nodes_samples) -> (Batch, plt.Figure):
         """
         Generate graphs
-
         :return:
         """
 
