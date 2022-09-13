@@ -78,6 +78,6 @@ repos:
     rev: '1.7.1'
     hooks:
     - id: bandit
-      args: ['-c', 'pyproject.toml', '--recursive', 'src', '--skip B404']
+      args: ['-c', 'pyproject.toml', '--recursive', 'src']
       additional_dependencies:
         - toml
