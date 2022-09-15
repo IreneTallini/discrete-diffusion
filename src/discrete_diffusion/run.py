@@ -41,7 +41,6 @@ def build_callbacks(cfg: ListConfig, *args: Callback) -> List[Callback]:
 
     return callbacks
 
-
 def run(cfg: DictConfig) -> str:
     """Generic train loop.
 
@@ -67,7 +66,6 @@ def run(cfg: DictConfig) -> str:
         cfg.nn.data.num_workers.test = 0
 
     cfg.core.tags = enforce_tags(cfg.core.get("tags", None))
-
     # Instantiate datamodule
     pylogger.info(f"Instantiating <{cfg.nn.data['_target_']}>")
     datamodule: pl.LightningDataModule = hydra.utils.instantiate(cfg.nn.data, _recursive_=False)
@@ -127,7 +125,6 @@ def run(cfg: DictConfig) -> str:
     # Logger closing to release resources/avoid multi-run conflicts
     if logger is not None:
         logger.experiment.finish()
-
     return logger.run_dir
 
 
