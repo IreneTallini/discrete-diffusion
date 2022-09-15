@@ -15,8 +15,8 @@ trainer:
   deterministic: ${train.deterministic}
 
 restore:
-  ckpt_or_run_path: null #graph_generation/discrete_diffusion/2vs60akq #entity/project/run_id
-  mode: null # null, finetune, hotstart, continue
+  ckpt_or_run_path: graph_generation/discrete_diffusion/kx1efrch #entity/project/run_id
+  mode: continue # null, finetune, hotstart, continue
 
 monitor:
   metric: 'loss/val'
@@ -24,7 +24,7 @@ monitor:
 
 callbacks:
   - _target_: pytorch_lightning.callbacks.EarlyStopping
-    patience: 10
+    patience: 100
     verbose: False
     monitor: ${train.monitor.metric}
     mode: ${train.monitor.mode}
@@ -35,9 +35,9 @@ callbacks:
     monitor: ${train.monitor.metric}
     mode: ${train.monitor.mode}
 
-  - _target_: pytorch_lightning.callbacks.LearningRateMonitor
-    logging_interval: "step"
-    log_momentum: False
+#  - _target_: pytorch_lightning.callbacks.LearningRateMonitor
+#    logging_interval: "step"
+#    log_momentum: False
 
   - _target_: pytorch_lightning.callbacks.progress.tqdm_progress.TQDMProgressBar
     refresh_rate: 20

@@ -12,6 +12,8 @@ import torch_geometric.data
 from torch import Tensor
 from torch_geometric.data import Batch, Data
 
+from discrete_diffusion.utils import edge_index_to_adj
+
 pylogger = logging.getLogger(__name__)
 
 
@@ -46,6 +48,8 @@ def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="py
         else:
             graph_num = max_graphs_per_dataset[dataset_id]
 
+        if max_num_nodes == -1:
+            max_num_nodes = max([sum(data_graph_indicator == i) for i in range(1, len(data_graph_labels) + 1)])
         data_tuple = list(map(tuple, data_adj))
 
         # add edges
@@ -65,7 +69,7 @@ def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="py
             # find the nodes for each graph
             nodes = node_list[data_graph_indicator == rand_id]
             G_sub = nx.Graph(G.subgraph(nodes))
-            if G_sub.number_of_nodes() <= max_num_nodes or max_num_nodes == -1:
+            if G_sub.number_of_nodes() <= max_num_nodes:
                 relabeling = {node: n for node, n in zip(sorted(G_sub.nodes), range(1, len(G_sub.nodes) + 1))}
                 G_sub = nx.relabel_nodes(G_sub, relabeling)
                 G_sub.graph["label"] = data_graph_labels[rand_id - 1]
@@ -96,6 +100,13 @@ def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="py
     random.Random(5).shuffle(big_graphs_list)
     if output_type == "pyg":
         big_graphs_list = to_data_list(big_graphs_list)
+    elif output_type == "plain":
+        big_graphs_list = [edge_index_to_adj(get_edge_index_from_nx(g), num_nodes=max_num_nodes)
+                           for g in big_graphs_list]
+    elif output_type == "networkx":
+        pass
+    else:
+        raise ValueError("output_type should be pyg, plain or networkx")
     return big_graphs_list, features_list
 
 

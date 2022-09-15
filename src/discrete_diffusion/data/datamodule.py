@@ -19,6 +19,7 @@ from nn_core.nn_types import Split
 
 from discrete_diffusion.data.graph_generator import GraphGenerator
 from discrete_diffusion.io_utils import load_TU_dataset, random_split_sequence, split_sequence
+from discrete_diffusion.utils import adj_to_edge_index
 
 pylogger = logging.getLogger(__name__)
 
@@ -337,7 +338,7 @@ class SyntheticGraphDataModule(MyDataModule):
                 config = self.datasets[stage]
                 datasets[stage] = hydra.utils.instantiate(
                     config=config,
-                    samples=graphs[stage],
+                    data_list=graphs[stage],
                 )
 
             self.train_dataset = datasets["train"]
