@@ -34,7 +34,16 @@ conda env create -f env.yaml
 conda activate discrete_diffusion
 pre-commit install
 ```
-Install torch geometric by hand: https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html
+If installing torch on a CUDA machine, re-install torch with:
+
+```
+https://pytorch.org/get-started/locally/
+```
+
+Install torch geometric by hand:
+```
+https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html
+```
 
 Run the tests:
 
