@@ -30,8 +30,8 @@ class AutoencoderPLModule(TemplatePLModule):
         gt_adjs = edge_index_to_adj(batch.edge_index, len(batch.batch))
 
         # loss = torch.norm(gt_adjs[mask] - similarities[mask]) ** 2
-
-        loss = torch.norm(gt_adjs - similarities) ** 2# torch.sum(torch.abs(gt_adjs - similarities))
+        # loss = torch.sum(torch.abs(gt_adjs - similarities))
+        loss = torch.norm(gt_adjs - similarities) ** 2
         # loss = torch.binary_cross_entropy_with_logits(similarities[mask], gt_adjs[mask].float()).mean()
         return {"loss": loss, "similarities": similarities}
 
@@ -65,10 +65,10 @@ class AutoencoderPLModule(TemplatePLModule):
         )
         return step_out
 
+
     # def test_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
     #     step_out = self.step(batch)
     #     z = step_out["z"]
-    #
     #     with open('tmp.txt', 'w+', encoding='UTF8') as f:
     #         writer = csv.writer(f)
     #         for graph in z:
