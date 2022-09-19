@@ -1,5 +1,6 @@
 import csv
 import logging
+import pathlib
 from typing import Any, Mapping
 
 import matplotlib.pyplot as plt
@@ -10,12 +11,15 @@ import wandb
 
 from nn_core.model_logging import NNLogger
 
+from discrete_diffusion.io_utils import write_TU_format
 from discrete_diffusion.pl_modules.pl_module import TemplatePLModule
 from discrete_diffusion.utils import (
     adj_to_edge_index,
     edge_index_to_adj,
     get_data_from_edge_index,
+    get_example_from_batch,
     get_graph_sizes_from_batch,
+    pyg_to_networkx_with_features,
 )
 
 pylogger = logging.getLogger(__name__)
@@ -67,19 +71,19 @@ class AutoencoderPLModule(TemplatePLModule):
         )
         return step_out
 
+    def test_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
+        step_out = self.step(batch)
+        z = step_out["z"]
+        batch.x = z
+        return batch
 
-    # def test_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
-    #     step_out = self.step(batch)
-    #     z = step_out["z"]
-    #     with open('tmp.txt', 'w+', encoding='UTF8') as f:
-    #         writer = csv.writer(f)
-    #         for graph in z:
-    #             for node_emb in graph:
-    #                 writer.writerow(node_emb)
-    #
-    #     self.log_dict(
-    #         {
-    #             "loss/test": step_out["loss"].cpu().detach(),
-    #         }
-    #     )
-    #     return step_out
+    def test_epoch_end(self, batch_list) -> None:
+        data_list = []
+        batch_size = len(batch_list[0].ptr) - 1
+        for batch in batch_list:
+            for i in range(batch_size):
+                pyg_graph = get_example_from_batch(batch, i)
+                nx_graph = pyg_to_networkx_with_features(pyg_graph)
+                data_list.append(nx_graph)
+        write_TU_format(data_list, path=self.hparams.latent_space_folder,
+                        dataset_name=self.hparams.dataset_name)

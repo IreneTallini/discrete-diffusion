@@ -37,6 +37,8 @@ module:
   _target_: discrete_diffusion.pl_modules.autoencoder_pl_module.AutoencoderPLModule
   batch_size: ${nn.data.batch_size}
   num_nodes_samples: -1 #-1 random, n > 0 fix
+  latent_space_folder: ${oc.env:PROJECT_ROOT}/data/latent_space
+  dataset_name: ${nn.graph_generator.graph_type}
 
   model:
     _target_: discrete_diffusion.modules.autoencoder.autoencoder.Autoencoder

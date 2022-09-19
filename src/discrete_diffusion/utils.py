@@ -6,6 +6,7 @@ import networkx as nx
 import scipy.spatial as sp
 import torch
 import torch.nn.functional as F
+import torch_geometric
 from torch.nn import CosineSimilarity
 from torch_geometric.data import Batch, Data
 from torch_geometric.utils import to_networkx
@@ -30,7 +31,6 @@ def edge_index_to_adj(edge_index: torch.Tensor, num_nodes: int):
 
 
 def adj_to_edge_index(adj: torch.Tensor) -> torch.Tensor:
-
     return (adj > 0).nonzero().t().type_as(adj)
 
 
@@ -102,3 +102,9 @@ def clear_figures(figures_list: List[plt.Figure]):
     for fig in figures_list:
         fig.clear()
         plt.close(fig)
+
+
+def pyg_to_networkx_with_features(pyg_graph: Data):
+    nx_graph = torch_geometric.utils.to_networkx(pyg_graph)
+    attr = {i + 1: {"x": pyg_graph.x[i]} for i in range(pyg_graph.num_nodes)}
+    nx.set_node_attributes(nx_graph, attr)
