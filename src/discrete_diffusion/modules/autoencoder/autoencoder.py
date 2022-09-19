@@ -82,9 +82,12 @@ class Autoencoder(torch.nn.Module):
         # # logpx_z = -torch.reduce_sum(cross_ent, axis=[1, 2, 3])
 
         gt_adjs = edge_index_to_adj(batch.edge_index, len(batch.batch))
-        logpx_z = -torch.norm(gt_adjs - x) ** 2
-        logpz = log_normal_pdf(z, torch.tensor(0.).type_as(z), torch.tensor(0.).type_as(z))
-        logqz_x = log_normal_pdf(z, mean, logvar)
-        return -torch.mean(logpx_z + logpz - logqz_x), z, x
+        logpx_z = -F.binary_cross_entropy_with_logits(input=x, target=gt_adjs.type_as(x))
+        # logpx_z = -torch.reduce_sum(cross_ent, axis=[1, 2, 3])
+
+        # logpx_z = -0.5 * torch.norm(gt_adjs - x) ** 2
+        # logpz = log_normal_pdf(z, torch.tensor(0.).type_as(z), torch.tensor(0.).type_as(z))
+        # logqz_x = log_normal_pdf(z, mean, logvar)
+        return -torch.mean(logpx_z), z, x #+ logpz - logqz_x), z, x
 
 #%%
