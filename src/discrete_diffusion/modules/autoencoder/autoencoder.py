@@ -10,7 +10,6 @@ class AttnBlock(nn.Module):
     """Channel-wise self-attention block."""
     def __init__(self, channels):
         super().__init__()
-        self.GroupNorm_0 = nn.GroupNorm(num_groups=32, num_channels=channels, eps=1e-6)
         self.Q = nn.Linear(channels, channels)
         self.K = nn.Linear(channels, channels)
         self.V = nn.Linear(channels, channels)
@@ -44,50 +43,60 @@ class Autoencoder(torch.nn.Module):
 
         # encoder
         self.encoder = torch.nn.Sequential(
-            nn.Linear(10, 128),
+            nn.Linear(50, 256),
             nn.SiLU(),
-            AttnBlock(128),
+            AttnBlock(256),
             nn.SiLU(),
-            AttnBlock(128),
+            AttnBlock(256),
             nn.SiLU(),
-            AttnBlock(128),
-            nn.SiLU(),
-            nn.Linear(128, 256))
+            AttnBlock(256),
+            nn.SiLU())
+        self.enc_out = torch.nn.Linear(50, 20)
+            # nn.Linear(128, 256))
+            # n.SiLU(),
 
+        self.dec_in = torch.nn.Linear(20, 50)
         self.decoder = torch.nn.Sequential(
-            nn.Linear(128, 10))
+            nn.Linear(256, 50))
 
     def encode(self, batch):
         edge_index = batch.edge_index
-        adj_matrix = edge_index_to_adj(edge_index, num_nodes=10).to(torch.float32)
+        adj_matrix = edge_index_to_adj(edge_index, num_nodes=50).to(torch.float32)
         emb = self.encoder(adj_matrix)
-        mean, logvar = torch.split(self.encoder(adj_matrix), split_size_or_sections=emb.shape[-1] // 2, dim=1)
-        return mean, logvar
+        emb = self.enc_out(emb.T).T
+        # mean, logvar = torch.split(self.encoder(adj_matrix), split_size_or_sections=emb.shape[-1] // 2, dim=1)
+        return emb  # mean, logvar
 
     def decode(self, z):
+        z = self.dec_in(z.T).T
+        z = F.silu(z)
         return self.decoder(z)
 
-    def reparameterize(self, mean, logvar):
-        eps = torch.randn(size=mean.shape).type_as(mean)
-        return eps * torch.exp(logvar * .5) + mean
+    # def reparameterize(self, mean, logvar):
+    #    eps = torch.randn(size=mean.shape).type_as(mean)
+    #    return eps * torch.exp(logvar * .5) + mean
 
     def forward(self, batch):
         # x = torch.rand((10, 10)).t
         # ype_as(batch.edge_index).to(torch.float32)
         # x.requires_grad = True
-        mean, logvar = self.encode(batch)
-        z = self.reparameterize(mean, logvar)
+        # mean, logvar = self.encode(batch)
+
+        z = self.encode(batch)
+        # z = self.reparameterize(mean, logvar)
+
         x = self.decode(z)
         # # cross_ent = torch.nn.sigmoid_cross_entropy_with_logits(logits=x_logit, labels=x)
         # # logpx_z = -torch.reduce_sum(cross_ent, axis=[1, 2, 3])
 
         gt_adjs = edge_index_to_adj(batch.edge_index, len(batch.batch))
-        logpx_z = -F.binary_cross_entropy_with_logits(input=x, target=gt_adjs.type_as(x))
+        # logpx_z = -F.binary_cross_entropy_with_logits(input=x, target=gt_adjs.type_as(x))
         # logpx_z = -torch.reduce_sum(cross_ent, axis=[1, 2, 3])
 
-        # logpx_z = -0.5 * torch.norm(gt_adjs - x) ** 2
+        logpx_z = -0.5 * torch.norm(gt_adjs - x) ** 2
         # logpz = log_normal_pdf(z, torch.tensor(0.).type_as(z), torch.tensor(0.).type_as(z))
         # logqz_x = log_normal_pdf(z, mean, logvar)
+
         return -torch.mean(logpx_z), z, x #+ logpz - logqz_x), z, x
 
 #%%
