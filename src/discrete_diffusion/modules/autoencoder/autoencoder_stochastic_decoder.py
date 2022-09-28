@@ -11,6 +11,8 @@ from discrete_diffusion.modules.transformer.ops import filter_logits
 from discrete_diffusion.modules.transformer.transformer import Transformer
 from discrete_diffusion.utils import edge_index_to_adj, flatten_batch, unflatten_adj
 
+device = "cpu"
+
 
 def roll(x, n):
     return torch.cat((x[:, -n:], x[:, :-n]), dim=1)
@@ -27,7 +29,7 @@ class PositionEmbedding(nn.Module):
         super().__init__()
         self.input_shape = input_shape
         self.input_dims = input_dims = np.prod(input_shape)
-        self.pos_emb = nn.Parameter(get_normal(input_dims, width, std=0.01 * init_scale)).to('cuda')
+        self.pos_emb = nn.Parameter(get_normal(input_dims, width, std=0.01 * init_scale)).to(device)
 
     def forward(self):
         return self.pos_emb
@@ -44,11 +46,14 @@ class AutoencoderStochasticDecoder(torch.nn.Module):
         self.enc_dropout = torch.nn.Dropout(p=0.5)
         # self.enc_conv1 = torch_geometric.nn.GCNConv(1, enc_channels)
         # self.enc_conv2 = torch_geometric.nn.GCNConv(enc_channels, enc_channels)
-        nn = torch.nn.Sequential(torch.nn.Linear(1, 64),
+        mlp1 = torch.nn.Sequential(torch.nn.Linear(1, self.enc_channels),
                                   torch.nn.ReLU(),
-                                  torch.nn.Linear(64, 64))
-        self.enc_conv1 = torch_geometric.nn.GINConv(nn)
-        self.enc_conv2 = torch_geometric.nn.GINConv(nn)
+                                  torch.nn.Linear(self.enc_channels, self.enc_channels))
+        mlp2 = torch.nn.Sequential(torch.nn.Linear(self.enc_channels, self.enc_channels),
+                                   torch.nn.ReLU(),
+                                   torch.nn.Linear(self.enc_channels, self.enc_channels))
+        self.enc_conv1 = torch_geometric.nn.GINConv(mlp1)
+        self.enc_conv2 = torch_geometric.nn.GINConv(mlp2)
         self.enc_jk = torch_geometric.nn.JumpingKnowledge("cat", enc_channels, num_layers=2)
         self.enc_linear = nn.Linear(2*enc_channels, latent_channels)
 
@@ -70,18 +75,16 @@ class AutoencoderStochasticDecoder(torch.nn.Module):
         x, edge_index, batch = batch.x, batch.edge_index, batch.batch
         X = self.enc_dropout(x.unsqueeze(-1))
         X1 = self.enc_conv1(X, edge_index)
-        # X1 = F.relu(X1)
         X2 = self.enc_conv2(X1, edge_index)
-        #X2 = F.relu(X2)
-        # Xs = [X1, X2]
-        # X = self.enc_jk(Xs)
+        Xs = [X1, X2]
+        X = self.enc_jk(Xs)
         X = torch_geometric.nn.global_mean_pool(X, batch)
         return self.enc_linear(X)
 
     def get_emb(self, sample_t, n_samples, x, z):
         if sample_t == 0:
             # Fill in start token
-            x = torch.empty(n_samples, 1, self.dec_channels).cuda()
+            x = torch.empty(n_samples, 1, self.dec_channels).to(device)
             z = self.conditioneer(z)
             x[:, 0] = z
         else:
