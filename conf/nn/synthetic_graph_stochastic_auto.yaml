@@ -26,15 +26,15 @@ data:
     test: 4
 
   batch_size:
-    train: 2
-    val: 2
+    train: 1
+    val: 1
     test: 1
 
   val_percentage: 0.1
 
 
 module:
-  _target_: discrete_diffusion.pl_modules.spectral_pl_module
+  _target_: discrete_diffusion.pl_modules.stochastic_pl_module.StochasticPLModule
   batch_size: ${nn.data.batch_size}
   num_nodes_samples: -1 #-1 random, n > 0 fix
   margin: 1.
@@ -42,8 +42,10 @@ module:
   dataset_name: ${nn.graph_generator.graph_type}
 
   model:
-    _target_: discrete_diffusion.modules.autoencoder.SpectralAutoencoder
-    hidden_channels: 128
+    _target_: discrete_diffusion.modules.autoencoder.autoencoder_stochastic_decoder.AutoencoderStochasticDecoder
+    enc_channels: 128
+    latent_channels: 128
+    dec_channels: 128
 
   optimizer:
     _target_: torch.optim.Adam

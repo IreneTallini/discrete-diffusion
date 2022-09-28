@@ -22,6 +22,9 @@ from discrete_diffusion.utils import clear_figures, edge_index_to_adj, generate_
 
 pylogger = logging.getLogger(__name__)
 
+import os
+
+os.environ['HYDRA_FULL_ERROR'] = '1'
 
 def build_callbacks(cfg: ListConfig, *args: Callback) -> List[Callback]:
     """Instantiate the callbacks given their configuration.
@@ -40,6 +43,7 @@ def build_callbacks(cfg: ListConfig, *args: Callback) -> List[Callback]:
         callbacks.append(hydra.utils.instantiate(callback, _recursive_=False))
 
     return callbacks
+
 
 def run(cfg: DictConfig) -> str:
     """Generic train loop.

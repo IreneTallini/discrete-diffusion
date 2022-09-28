@@ -7,6 +7,7 @@ from typing import List, Optional, Sequence, Tuple, Union
 import hydra
 import omegaconf
 import pytorch_lightning as pl
+import torch
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader, Dataset
@@ -19,7 +20,7 @@ from nn_core.nn_types import Split
 
 from discrete_diffusion.data.graph_generator import GraphGenerator
 from discrete_diffusion.io_utils import load_TU_dataset, random_split_sequence, split_sequence
-from discrete_diffusion.utils import adj_to_edge_index
+from discrete_diffusion.utils import adj_to_edge_index, edge_index_to_adj
 
 pylogger = logging.getLogger(__name__)
 
@@ -95,6 +96,15 @@ def collate_fn(samples: List, split: Split, metadata: MetaData):
         A batch generated from the given samples
     """
     return default_collate(samples)
+
+def x_A_collate_fn(samples: List):
+    xs = torch.cat([data.x.unsqueeze(0) for data in samples], dim=0)
+    As = torch.cat([edge_index_to_adj(data.edge_index, num_nodes=data.num_nodes).unsqueeze(0) for data in samples], dim=0)
+    return xs, As
+    # x, edge_index, batch = batch.x, batch.edge_index, batch.batch
+    # compute graph laplacian matrix
+    #A = edge_index_to_adj(edge_index, num_nodes=x.shape[0])
+
 
 
 class MyDataModule(pl.LightningDataModule):
@@ -346,5 +356,5 @@ class SyntheticGraphDataModule(MyDataModule):
             self.test_datasets = [datasets["test"]]
 
     def get_collate_fn(self, split):
-
         return Batch.from_data_list
+        # return x_A_collate_fn
