@@ -18,7 +18,7 @@ data:
       _target_: discrete_diffusion.data.graph_dataset.GraphDataset
 
   gpus: ${train.trainer.gpus}
-  overfit: True
+  overfit: False
 
   num_workers:
     train: 8
