@@ -26,9 +26,9 @@ data:
     test: 4
 
   batch_size:
-    train: 1
-    val: 1
-    test: 1
+    train: 32
+    val: 1 # Non funziona con batch size maggiore
+    test: 1 # Non funziona con batch size maggiore
 
   val_percentage: 0.1
 
@@ -38,7 +38,6 @@ module:
   batch_size: ${nn.data.batch_size}
   num_nodes_samples: -1 #-1 random, n > 0 fix
   margin: 1.
-  # latent_space_folder: ${oc.env:PROJECT_ROOT}/data/latent_space
   dataset_name: ${nn.graph_generator.graph_type}
 
   model:
@@ -46,15 +45,16 @@ module:
     enc_channels: 128
     latent_channels: 128
     dec_channels: 128
+    max_num_nodes: ${nn.graph_generator.nx_params.n}
 
   optimizer:
     _target_: torch.optim.Adam
     lr: 1e-4
 
-  # lr_scheduler:
-  #  _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
-  #  T_0: 10
-  #  T_mult: 2
-  #  eta_min: 0 # min value for the lr
-  #  last_epoch: -1
-  #  verbose: False
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+    T_0: 10
+    T_mult: 2
+    eta_min: 0 # min value for the lr
+    last_epoch: -1
+    verbose: False

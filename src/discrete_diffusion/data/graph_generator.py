@@ -39,10 +39,11 @@ class GraphGenerator:
             graph = instantiate(self.nx_generator, **params)
             graph: nx.Graph = nx.relabel.convert_node_labels_to_integers(graph)
 
-            # for i in range(graph.number_of_nodes()):
-            #     graph.nodes[i]["x"] = 1.0
-                # graph.nodes[i]["x"] = one_hot(torch.tensor(i), graph.number_of_nodes()).float()
-            networkx.set_node_attributes(graph, networkx.betweenness_centrality(graph), "x")
+            # Attributes must be lists!
+            for i in range(graph.number_of_nodes()):
+                # graph.nodes[i]["x"] = 1.0
+                graph.nodes[i]["x"] = one_hot(torch.tensor(i), graph.number_of_nodes()).float().tolist()
+            # networkx.set_node_attributes(graph, networkx.betweenness_centrality(graph), "x")
 
             generated_graphs.append(graph)
             features_list.append([graph.nodes[i]["x"] for i in range(graph.number_of_nodes())])

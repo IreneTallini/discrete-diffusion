@@ -1,6 +1,6 @@
 _target_: discrete_diffusion.data.graph_generator.GraphGenerator
 graph_type: "random_tree"
-num_samples: 1000
+num_samples: 64
 nx_params:
   n: [50]
 

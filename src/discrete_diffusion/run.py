@@ -112,7 +112,7 @@ def run(cfg: DictConfig) -> str:
         logger=logger,
         callbacks=callbacks,
         **cfg.train.trainer,
-        check_val_every_n_epoch=1,
+        check_val_every_n_epoch=10,
         # log_every_n_steps=1,
     )
 

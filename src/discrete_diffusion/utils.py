@@ -74,10 +74,12 @@ def unflatten_batch(flat_batch: torch.Tensor, graph_sizes: torch.Tensor, batch_s
         flat_idx_start = flat_idx_end
     return unflattened_adj
 
+
 def flatten_batch(batch, x):
     graph_sizes = get_graph_sizes_from_batch(batch)
     mask = torch.block_diag(*[torch.triu(torch.ones(i, i), diagonal=1) for i in graph_sizes]).bool()
     return x[mask]
+
 
 def generate_sampled_graphs_figures(sampled_graphs: List[Data]) -> (plt.Figure, plt.Figure):
     num_samples = len(sampled_graphs)

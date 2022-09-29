@@ -43,14 +43,12 @@ class StochasticPLModule(TemplatePLModule):
 
     def validation_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
         # logger: NNLogger
-        import matplotlib.pyplot as plt
-
 
         step_out = self.step(batch)
         if batch_idx < 10:
             z = self.model.encode(batch)
             x = self.model.decode_sample(z, n_samples=1)
-            out_A = unflatten_adj(x, num_nodes=50)
+            out_A = unflatten_adj(x, num_nodes=self.model.max_num_nodes)
             plt.imshow(out_A.cpu())
             plt.savefig('gen.png')
             plt.close()
@@ -61,8 +59,7 @@ class StochasticPLModule(TemplatePLModule):
             plt.savefig('gen_graph.png')
             plt.close()
             # wandb.log({"Reconstruction Example": wandb.Image(fig)})
-
-            input_A = edge_index_to_adj(batch.edge_index, num_nodes=50)
+            input_A = edge_index_to_adj(batch.edge_index, num_nodes=self.model.max_num_nodes)
             plt.imshow(input_A.cpu())
             plt.savefig('input.png')
             plt.close()
