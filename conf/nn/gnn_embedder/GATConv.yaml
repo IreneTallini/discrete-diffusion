@@ -1,0 +1,3 @@
+_target_: discrete_diffusion.modules.connectivity_augment.node_embedder.GATWrapper
+input_dim: ??
+output_dim: ??
