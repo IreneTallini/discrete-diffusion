@@ -1,5 +1,6 @@
 defaults:
   - graph_generator: random_tree
+  - gnn_embedder: GATConv
   - _self_
 
 data:
@@ -18,10 +19,10 @@ data:
       _target_: discrete_diffusion.data.graph_dataset.GraphDataset
 
   gpus: ${train.trainer.gpus}
-  overfit: True
+  overfit: False
 
   num_workers:
-    train: 8
+    train: 16
     val: 4
     test: 4
 
@@ -46,6 +47,18 @@ module:
     latent_channels: 128
     dec_channels: 128
     max_num_nodes: ${nn.graph_generator.nx_params.n}
+    node_embedder:
+      _target_: discrete_diffusion.modules.connectivity_augment.node_embedder.NodeEmbedder
+      feature_dim: ???
+      num_layers_pre_post_mlp: 2
+      hidden_dim_shared: 64
+      embedding_dim: ${nn.module.model.enc_channels}
+      use_batch_norm_pre_post_mlp: true
+      num_convs: 2
+      dropout_rate: 0.2
+      do_preprocess: true
+      jump_mode: cat
+      gnn: ${nn.gnn_embedder}
 
   optimizer:
     _target_: torch.optim.Adam

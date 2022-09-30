@@ -35,9 +35,9 @@ callbacks:
     monitor: ${train.monitor.metric}
     mode: ${train.monitor.mode}
 
-#  - _target_: pytorch_lightning.callbacks.LearningRateMonitor
-#    logging_interval: "step"
-#    log_momentum: False
+  - _target_: pytorch_lightning.callbacks.LearningRateMonitor
+    logging_interval: "step"
+    log_momentum: False
 
   - _target_: pytorch_lightning.callbacks.progress.tqdm_progress.TQDMProgressBar
     refresh_rate: 1

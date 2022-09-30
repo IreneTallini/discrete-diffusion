@@ -1,4 +1,7 @@
+import hydra.utils
 import torch.nn as nn
+import torch_geometric
+from omegaconf import DictConfig
 from torch import repeat_interleave
 from torch_geometric.nn import GATConv, JumpingKnowledge
 
@@ -9,35 +12,36 @@ from discrete_diffusion.utils import get_graph_sizes_from_batch
 class NodeEmbedder(nn.Module):
     def __init__(
         self,
+        gnn: DictConfig,
         feature_dim,
-        hidden_dim,
         embedding_dim,
-        num_mlp_layers,
+        hidden_dim_shared,
+        use_batch_norm_pre_post_mlp,
+        num_layers_pre_post_mlp,
         num_convs,
         dropout_rate,
         do_preprocess,
-        use_batch_norm=True,
         jump_mode="cat",
         do_time_conditioning=False,
     ):
         super().__init__()
 
         self.feature_dim = feature_dim
-        self.hidden_dim = hidden_dim
+        self.hidden_dim_shared = hidden_dim_shared
+        self.use_batch_norm_pre_post_mlp = use_batch_norm_pre_post_mlp
         self.embedding_dim = embedding_dim
         self.num_convs = num_convs
         self.jump_mode = jump_mode
         self.do_preprocess = do_preprocess
-        self.use_batch_norm = use_batch_norm
         self.do_time_conditioning = do_time_conditioning
 
         self.preprocess_mlp = (
             MLP(
-                num_layers=num_mlp_layers,
+                num_layers=num_layers_pre_post_mlp,
                 input_dim=self.feature_dim,
-                output_dim=self.embedding_dim,
-                hidden_dim=self.hidden_dim,
-                use_batch_norm=self.use_batch_norm,
+                output_dim=self.hidden_dim_shared,
+                hidden_dim=self.hidden_dim_shared,
+                use_batch_norm=self.use_batch_norm_pre_post_mlp,
             )
             if do_preprocess
             else None
@@ -45,56 +49,47 @@ class NodeEmbedder(nn.Module):
 
         self.convs = nn.ModuleList()
         for conv in range(self.num_convs):
-            input_dim = self.feature_dim if (conv == 0 and not self.do_preprocess) else self.hidden_dim
-            output_dim = self.embedding_dim if (conv == self.num_convs - 1) else self.hidden_dim
-            # conv = GINConv(
-            #     MLP(
-            #         num_layers=num_mlp_layers,
-            #         input_dim=input_dim,
-            #         output_dim=output_dim,
-            #         hidden_dim=self.hidden_dim,
-            #         use_batch_norm=self.use_batch_norm,
-            #     ),
-            #     train_eps=True,
-            # )
-            conv = GATConv(
-                in_channels=input_dim,
-                out_channels=output_dim,
-            )
+            input_dim = self.feature_dim if (conv == 0 and not self.do_preprocess) else self.hidden_dim_shared
+            output_dim = self.hidden_dim_shared
+            conv = hydra.utils.instantiate(gnn, input_dim=input_dim, output_dim=output_dim)
             self.convs.append(conv)
 
         if self.do_time_conditioning:
             self.time_mlps = nn.ModuleList()
             for time_mlp in range(self.num_convs):
-                output_dim = self.embedding_dim if (time_mlp == self.num_convs - 1) else self.hidden_dim
+                output_dim = self.embedding_dim if (time_mlp == self.num_convs - 1) else self.hidden_dim_shared
                 time_mlp = MLP(
-                    num_layers=num_mlp_layers,
+                    num_layers=num_layers_pre_post_mlp,
                     input_dim=1,
                     output_dim=output_dim,
-                    hidden_dim=self.hidden_dim,
-                    use_batch_norm=self.use_batch_norm,
+                    hidden_dim=self.hidden_dim_pre_post_mlp,
+                    use_batch_norm=self.use_batch_norm_pre_post_mlp,
                 )
                 self.time_mlps.append(time_mlp)
 
         num_layers = (self.num_convs + 1) if self.do_preprocess else self.num_convs
-        pooled_dim = (num_layers * self.hidden_dim) + self.feature_dim if self.jump_mode == "cat" else self.hidden_dim
+        if self.jump_mode == "cat":
+            pooled_dim = (num_layers * self.hidden_dim_shared) + self.feature_dim
+        else:
+            pooled_dim = self.hidden_dim_shared
 
         self.dropout = nn.Dropout(p=dropout_rate)
 
-        self.mlp = MLP(
-            num_layers=num_mlp_layers,
+        self.postprocess_mlp = MLP(
+            num_layers=num_layers_pre_post_mlp,
             input_dim=pooled_dim,
             output_dim=self.embedding_dim,
-            hidden_dim=self.hidden_dim,
-            use_batch_norm=self.use_batch_norm,
+            hidden_dim=self.hidden_dim_shared,
+            use_batch_norm=self.use_batch_norm_pre_post_mlp,
         )
 
         self.jumping_knowledge = JumpingKnowledge(mode=self.jump_mode) if self.jump_mode != "none" else None
 
-    def forward(self, batch, t):
+    def forward(self, batch, t=None):
         """
         Embeds a batch of graphs given as a single large graph
         :param batch: Batch containing graphs to embed
+        :param t: timestep
         :return: embedded graphs, each graph embedded as a point in R^{E}
         """
 
@@ -123,7 +118,7 @@ class NodeEmbedder(nn.Module):
 
         h = self.dropout(h)
         # out ~ (num_nodes_in_batch, output_dim)
-        node_out_features = self.mlp(h)
+        node_out_features = self.postprocess_mlp(h)
 
         return node_out_features
 
@@ -234,3 +229,19 @@ class NodeEmbedder2(nn.Module):
         node_out_features = gnn.mlp(h)
 
         return node_out_features
+
+
+class GATWrapper(torch_geometric.nn.GATConv):
+    def __init__(self, input_dim: int, output_dim: int, **kwargs):
+        super(GATWrapper, self).__init__(in_channels=input_dim, out_channels=output_dim, **kwargs)
+
+
+class GINWrapper(torch_geometric.nn.GINConv):
+    def __init__(self, input_dim: int, output_dim: int, **kwargs):
+
+        mlp = MLP(
+                input_dim=input_dim,
+                output_dim=output_dim,
+                **kwargs,
+            )
+        super(GINWrapper, self).__init__(nn=mlp)

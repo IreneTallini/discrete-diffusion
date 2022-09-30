@@ -2,7 +2,7 @@ core:
   project_name: discrete_diffusion
   storage_dir: ${oc.env:PROJECT_ROOT}/storage
   version: 0.0.1
-  tags: prova
+  tags: "prova"
 
 defaults:
   - nn: classifier

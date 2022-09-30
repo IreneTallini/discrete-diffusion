@@ -1,10 +1,12 @@
 from math import pi
 
+import hydra.utils
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch_geometric
+from omegaconf import DictConfig
 from tqdm import tqdm
 
 from discrete_diffusion.modules.transformer.ops import filter_logits
@@ -34,7 +36,8 @@ class PositionEmbedding(nn.Module):
 
 
 class AutoencoderStochasticDecoder(torch.nn.Module):
-    def __init__(self, feature_dim=64, enc_channels=64, latent_channels=64, dec_channels=64, max_num_nodes=10):
+    def __init__(self, node_embedder: DictConfig, feature_dim=64, enc_channels=64,
+                 latent_channels=64, dec_channels=64, max_num_nodes=10):
         super().__init__()
         self.enc_channels = enc_channels
         self.latent_channels = latent_channels
@@ -43,19 +46,20 @@ class AutoencoderStochasticDecoder(torch.nn.Module):
         self.max_num_nodes = max_num_nodes[0]
 
         # encoder
-        self.enc_dropout = torch.nn.Dropout(p=0.5)
-        # self.enc_conv1 = torch_geometric.nn.GCNConv(1, enc_channels)
+        self.node_embedder = hydra.utils.instantiate(node_embedder, feature_dim=feature_dim, _recursive_=False)
+        # self.enc_dropout = torch.nn.Dropout(p=0.5)
+        # self.enc_conv1 = torch_geometric.nn.GCNConv(self.feature_dim, enc_channels)
         # self.enc_conv2 = torch_geometric.nn.GCNConv(enc_channels, enc_chan    nels)
-        mlp1 = torch.nn.Sequential(torch.nn.Linear(self.feature_dim, self.enc_channels),
-                                  torch.nn.ReLU(),
-                                  torch.nn.Linear(self.enc_channels, self.enc_channels))
-        mlp2 = torch.nn.Sequential(torch.nn.Linear(self.enc_channels, self.enc_channels),
-                                   torch.nn.ReLU(),
-                                   torch.nn.Linear(self.enc_channels, self.enc_channels))
-        self.enc_conv1 = torch_geometric.nn.GINConv(mlp1)
-        self.enc_conv2 = torch_geometric.nn.GINConv(mlp2)
-        self.enc_jk = torch_geometric.nn.JumpingKnowledge("cat", enc_channels, num_layers=2)
-        self.enc_linear = nn.Linear(2*enc_channels, latent_channels)
+        # mlp1 = torch.nn.Sequential(torch.nn.Linear(self.feature_dim, self.enc_channels),
+        #                           torch.nn.ReLU(),
+        #                           torch.nn.Linear(self.enc_channels, self.enc_channels))
+        # mlp2 = torch.nn.Sequential(torch.nn.Linear(self.enc_channels, self.enc_channels),
+        #                            torch.nn.ReLU(),
+        #                            torch.nn.Linear(self.enc_channels, self.enc_channels))
+        # self.enc_conv1 = hydra.utils.instantiate(gnn, in_channels=self.feature_dim)
+        # self.enc_conv2 = hydra.utils.instantiate(gnn, in_channels=enc_channels)
+        # self.enc_jk = torch_geometric.nn.JumpingKnowledge("cat", enc_channels, num_layers=2)
+        self.enc_linear = nn.Linear(enc_channels, latent_channels)
 
         # decoder
         self.conditioneer = nn.Linear(latent_channels, dec_channels)
@@ -77,21 +81,22 @@ class AutoencoderStochasticDecoder(torch.nn.Module):
         self.dec_out = nn.Linear(dec_channels, 2)
 
     def encode(self, batch):
-        x, edge_index, batch = batch.x, batch.edge_index, batch.batch
-        if len(x.shape) == 1:
-            x = x.unsqueeze(-1)
-        X = self.enc_dropout(x)
-        X1 = self.enc_conv1(X, edge_index)
-        X2 = self.enc_conv2(X1, edge_index)
-        Xs = [X1, X2]
-        X = self.enc_jk(Xs)
-        X = torch_geometric.nn.global_mean_pool(X, batch)
+        # x, edge_index, batch = batch.x, batch.edge_index, batch.batch
+        # if len(x.shape) == 1:
+        #     x = x.unsqueeze(-1)
+        # X = self.enc_dropout(x)
+        # X1 = self.enc_conv1(X, edge_index)
+        # X2 = self.enc_conv2(X1, edge_index)
+        # Xs = [X1, X2]
+        # X = self.enc_jk(Xs)
+        X = self.node_embedder(batch)
+        X = torch_geometric.nn.global_mean_pool(X, batch.batch)
         return self.enc_linear(X)
 
     def get_emb(self, sample_t, n_samples, x, z):
         if sample_t == 0:
             # Fill in start token
-            x = torch.empty(n_samples, 1, self.dec_channels).type_as(z)
+            x = torch.empty(n_samples, 1, self.dec_channels, device=z.device)
             z = self.conditioneer(z)
             x[:, 0] = z
         else:
@@ -151,5 +156,5 @@ class AutoencoderStochasticDecoder(torch.nn.Module):
         # dataset embed
         z = self.encode(batch)
         loss = self.decode_train(z, batch)
-        return loss
+        return loss, z
 #%%

@@ -5,9 +5,8 @@ from typing import Any, Mapping
 
 import matplotlib.pyplot as plt
 import networkx as nx
-import torch
 import torch_geometric.utils
-import wandb
+from pytorch_lightning.loggers.base import DummyLogger
 
 from nn_core.model_logging import NNLogger
 
@@ -16,6 +15,7 @@ from discrete_diffusion.pl_modules.pl_module import TemplatePLModule
 from discrete_diffusion.utils import (
     adj_to_edge_index,
     edge_index_to_adj,
+    generate_sampled_graphs_figures,
     get_data_from_edge_index,
     get_example_from_batch,
     get_graph_sizes_from_batch,
@@ -29,7 +29,7 @@ pylogger = logging.getLogger(__name__)
 class StochasticPLModule(TemplatePLModule):
 
     def step(self, batch) -> Mapping[str, Any]:
-        loss = self(batch)
+        loss, z = self(batch)
         # edge_index = batch.edge_index
         # adj_matrix = edge_index_to_adj(edge_index, num_nodes=10).to(torch.float32)  # .to(self.device)
 
@@ -39,33 +39,38 @@ class StochasticPLModule(TemplatePLModule):
         # loss = torch.norm(gt_adjs[mask] - similarities[mask]) ** 2
         # loss = torch.sum(torch.abs(gt_adjs - similarities))
         # loss = torch.binary_cross_entropy_with_logits(similarities[mask], gt_adjs[mask].float()).mean()
-        return {"loss": loss}
+        return {"loss": loss, "z": z}
 
     def validation_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
-        # logger: NNLogger
 
         step_out = self.step(batch)
-        if batch_idx < 10:
-            z = self.model.encode(batch)
+        z = step_out["z"]
+
+        gt_data = batch
+        out_data = gt_data
+        if batch_idx < 16:
             x = self.model.decode_sample(z, n_samples=1)
             out_A = unflatten_adj(x, num_nodes=self.model.max_num_nodes)
-            plt.imshow(out_A.cpu())
-            plt.savefig('gen.png')
-            plt.close()
+            # plt.imshow(out_A.cpu())
+
+            # plt.savefig('gen.png')
+            # plt.close()
 
             edge_out_A = adj_to_edge_index(out_A)
             out_data = get_data_from_edge_index(edge_out_A, batch.x)
-            nx.draw(torch_geometric.utils.to_networkx(out_data), with_labels=True, node_size=0.1)
-            plt.savefig('gen_graph.png')
-            plt.close()
+
+            # nx.draw(torch_geometric.utils.to_networkx(out_data), with_labels=True, node_size=0.1)
+            # plt.savefig('gen_graph.png')
             # wandb.log({"Reconstruction Example": wandb.Image(fig)})
-            input_A = edge_index_to_adj(batch.edge_index, num_nodes=self.model.max_num_nodes)
-            plt.imshow(input_A.cpu())
-            plt.savefig('input.png')
-            plt.close()
-            nx.draw(torch_geometric.utils.to_networkx(batch), with_labels=True,  node_size=0.1)
-            plt.savefig('input_graph.png')
-            plt.close()
+            # plt.close()
+            # input_A = edge_index_to_adj(batch.edge_index, num_nodes=self.model.max_num_nodes)
+            # plt.imshow(input_A.cpu())
+            # plt.savefig('input.png')
+            # plt.close()
+            # nx.draw(torch_geometric.utils.to_networkx(batch), with_labels=True,  node_size=0.1)
+            # plt.savefig('input_graph.png')
+            # plt.close()
+
     # z = step_out['z']
         # x_rec = step_out['x_rec']
         # z = step_out["z"]
@@ -92,7 +97,13 @@ class StochasticPLModule(TemplatePLModule):
             on_epoch=True,
             prog_bar=True,
         )
-        return step_out
+        return out_data
+
+    def validation_epoch_end(self, outputs) -> None:
+        fig, fig_adj = generate_sampled_graphs_figures(outputs[:16])
+        if type(self.logger) != DummyLogger:
+            self.logger.log_image(key="Sampled Graphs", images=[fig])
+            self.logger.log_image(key="Sampled Adj", images=[fig_adj])
 
     # def test_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
     #     step_out = self.step(batch)
