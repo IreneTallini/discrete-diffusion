@@ -50,7 +50,10 @@ def get_example_from_batch(batch: Batch, idx: int) -> Data:
         if edge[0] in ids:
             edge_index.append(edge - min_id)
     edge_index = torch.stack(edge_index, dim=1)
-    node_features = batch.x[batch.ptr[idx] : batch.ptr[idx + 1], :]
+    if len(batch.x.shape) == 1:
+        node_features = batch.x[batch.ptr[idx]: batch.ptr[idx + 1]]
+    else:
+        node_features = batch.x[batch.ptr[idx]: batch.ptr[idx + 1], :]
     graph = Data(x=node_features, edge_index=edge_index, num_nodes=len(node_features))
     return graph
 

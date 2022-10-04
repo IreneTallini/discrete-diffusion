@@ -46,7 +46,7 @@ class StochasticPLModule(TemplatePLModule):
         step_out = self.step(batch)
         z = step_out["z"]
 
-        gt_data = batch
+        gt_data = get_example_from_batch(batch, 0)
         out_data = gt_data
         if batch_idx < 16:
             x = self.model.decode_sample(z, n_samples=1)
@@ -97,13 +97,19 @@ class StochasticPLModule(TemplatePLModule):
             on_epoch=True,
             prog_bar=True,
         )
-        return out_data
+        return {"out_data": out_data, "gt_data": gt_data}
 
     def validation_epoch_end(self, outputs) -> None:
-        fig, fig_adj = generate_sampled_graphs_figures(outputs[:16])
+        out_data = [outputs[i]["out_data"] for i in range(16)]
+        gt_data = [outputs[i]["gt_data"] for i in range(16)]
+        fig, fig_adj = generate_sampled_graphs_figures(out_data)
+        fig_gt, fig_adj_gt = generate_sampled_graphs_figures(gt_data)
         if type(self.logger) != DummyLogger:
             self.logger.log_image(key="Sampled Graphs", images=[fig])
             self.logger.log_image(key="Sampled Adj", images=[fig_adj])
+            self.logger.log_image(key="GT Graphs", images=[fig_gt])
+            self.logger.log_image(key="GT Adj", images=[fig_adj_gt])
+        plt.close("all")
 
     # def test_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
     #     step_out = self.step(batch)
