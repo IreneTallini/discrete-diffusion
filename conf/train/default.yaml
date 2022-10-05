@@ -9,7 +9,7 @@ trainer:
   precision: 32
   max_epochs: 100000
   accumulate_grad_batches: 1
-  num_sanity_val_steps: 2
+  num_sanity_val_steps: 0
   gradient_clip_val: 10.0
   val_check_interval: 1.0
   deterministic: ${train.deterministic}
@@ -53,7 +53,8 @@ logging:
     project: ${core.project_name}
     entity: graph_generation
     log_model: ${..upload.run_files}
-    mode: 'online'
+    # mode: 'online'
+    mode: "offline"
     tags: ${core.tags}
 
 #  wandb_watch:

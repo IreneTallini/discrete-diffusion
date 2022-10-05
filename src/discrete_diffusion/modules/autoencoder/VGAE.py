@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch_geometric.nn
 
 from discrete_diffusion.utils import edge_index_to_adj
 
@@ -61,7 +62,7 @@ class GraphConvSparse(nn.Module):
 
 
 def dot_product_decode(Z):
-    A_pred = torch.sigmoid(torch.matmul(Z, Z.t()))
+    A_pred = torch.sigmoid(Z @ Z.T)
     return A_pred
 
 
@@ -71,25 +72,41 @@ def glorot_init(input_dim, output_dim):
     return nn.Parameter(initial)
 
 
-def loss_function(recon_x, x, mu, logvar):
-    BCE = F.binary_cross_entropy(recon_x, x.view(-1, patch_size*patch_size), reduction='sum')
-    KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-    return BCE + KLD
+# def loss_function(recon_x, x, mu, logvar):
+#    BCE = F.binary_cross_entropy(recon_x, x.view(-1, patch_size*patch_size), reduction='sum')
+#    KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+#    return BCE + KLD
+
+
+def preprocess_graph(adj):
+    adj_ = adj + torch.eye(adj.shape[0], device=adj.device)
+    rowsum = torch.tensor(adj_.sum(1), device=adj.device)
+    degree_mat_inv_sqrt = torch.diag(torch.pow(rowsum, -0.5).flatten())
+    adj_normalized =  degree_mat_inv_sqrt @ adj_ @ degree_mat_inv_sqrt
+    return adj_normalized
 
 
 class GAE(nn.Module):
     def __init__(self, feature_dim, hidden_channels):
         super(GAE, self).__init__()
-        self.base_gcn = GraphConvSparse(feature_dim, hidden_channels)
-        self.gcn_mean = GraphConvSparse(hidden_channels, hidden_channels, activation=lambda x: x)
+        self.base_gcn = torch_geometric.nn.GCNConv(feature_dim, hidden_channels)  # GraphConvSparse(feature_dim, hidden_channels)
+        self.gcn_mean = torch_geometric.nn.GCNConv(hidden_channels, 16)  # GraphConvSparse(hidden_channels, hidden_channels, activation=lambda x: x)
 
-    def encode(self, X):
-        hidden = self.base_gcn(X)
-        z = self.mean = self.gcn_mean(hidden)
+    def encode(self, batch):
+        # adj = edge_index_to_adj(batch.edge_index, batch.num_nodes)
+        X = batch.x
+        hidden = self.base_gcn(X, batch.edge_index)
+        hidden = torch.nn.functional.relu(hidden)
+        z = self.gcn_mean(hidden, batch.edge_index)
         return z
+        # adj_norm = preprocess_graph(adj)
+        # hidden = self.base_gcn(X, adj_norm)
+        # z = self.mean = self.gcn_mean(hidden, adj_norm)
+        # return z
 
     def forward(self, batch):
-        X = batch.x
-        Z = self.encode(X)
+        Z = self.encode(batch)
         A_pred = dot_product_decode(Z)
-        return A_pred
+        A_gt = edge_index_to_adj(batch.edge_index, batch.num_nodes)
+        logpx_z = F.binary_cross_entropy_with_logits(input=A_pred, target=A_gt.type_as(A_pred))
+        return logpx_z, Z, A_pred

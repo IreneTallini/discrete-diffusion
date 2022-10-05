@@ -147,7 +147,7 @@ class MyDataModule(pl.LightningDataModule):
             batch_size=self.batch_size.train,
             num_workers=self.num_workers.train,
             pin_memory=self.pin_memory,
-            collate_fn=self.get_collate_fn("train"),
+            collate_fn=self.get_collate_fn("train")
             # multiprocessing_context="fork",
         )
 
@@ -184,7 +184,7 @@ class MyDataModule(pl.LightningDataModule):
 
     @staticmethod
     def split_train_val_test(graphs):
-        split_ratio = {"train": 0.8, "val": 0.1, "test": 0.1}
+        split_ratio = {"train": 0.3, "val": 0.3, "test": 0.3}
 
         train_val, test = random_split_sequence(graphs, split_ratio["train"] + split_ratio["val"])
 
@@ -282,7 +282,7 @@ class GraphDataModule(MyDataModule):
 
     @staticmethod
     def split_train_val_test(graphs):
-        split_ratio = {"train": 0.8, "val": 0.1, "test": 0.1}
+        split_ratio = {"train": 0.3, "val": 0.3, "test": 0.3}
 
         train_val, test = random_split_sequence(graphs, split_ratio["train"] + split_ratio["val"])
 
@@ -314,9 +314,18 @@ class SyntheticGraphDataModule(MyDataModule):
 
         generated_nx_graphs, self.features_list = self.graph_generator.generate_data()
 
-        self.generated_graphs: List[Data] = [from_networkx(nx_graph) for nx_graph in generated_nx_graphs]
+        # self.generated_graphs: List[Data] = [from_networkx(nx_graph) for nx_graph in generated_nx_graphs]
+        import torch
 
-        ref_graph = self.generated_graphs[1]
+        from discrete_diffusion.data.cora_generator import load_data
+        adj, _ = load_data('cora')
+        adj = torch.tensor(adj.todense())
+        adj = adj_to_edge_index(adj)
+        data = Data(x=torch.tensor(self.features_list[0]),
+                    edge_index=adj)
+
+        self.generated_graphs = [data]
+        ref_graph = self.generated_graphs[0]
         if overfit:
             self.generated_graphs = graph_generator.num_samples * [ref_graph]
             self.features_list = graph_generator.num_samples * [self.features_list[0]]

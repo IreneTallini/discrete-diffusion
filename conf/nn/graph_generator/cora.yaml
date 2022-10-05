@@ -1,0 +1,3 @@
+_target_: discrete_diffusion.data.cora_generator.CoraGenerator
+num_samples: 5
+graph_type: 'cora'

@@ -41,7 +41,7 @@ class GraphGenerator:
 
             # for i in range(graph.number_of_nodes()):
             #     graph.nodes[i]["x"] = 1.0
-                # graph.nodes[i]["x"] = one_hot(torch.tensor(i), graph.number_of_nodes()).float()
+            # graph.nodes[i]["x"] = one_hot(torch.tensor(i), graph.number_of_nodes()).float()
             networkx.set_node_attributes(graph, networkx.betweenness_centrality(graph), "x")
 
             generated_graphs.append(graph)
