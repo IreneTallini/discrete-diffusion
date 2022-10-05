@@ -362,3 +362,6 @@ class GroundTruthDiffusion(Diffusion):
     #     noisy_batch = self.forward_diffusion(ref_batch, t)
     #     noisy_graph = get_data_from_edge_index(noisy_batch.edge_index, noisy_batch.x)
     #     return noisy_graph
+
+
+# class ContinuousDiffusion(Diffusion):

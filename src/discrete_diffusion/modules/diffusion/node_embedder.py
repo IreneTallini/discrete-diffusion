@@ -2,7 +2,7 @@ import torch.nn as nn
 from torch import repeat_interleave
 from torch_geometric.nn import GATConv, JumpingKnowledge
 
-from discrete_diffusion.modules.connectivity_augment.mlp import MLP
+from discrete_diffusion.modules.diffusion.mlp import MLP
 from discrete_diffusion.utils import get_graph_sizes_from_batch
 
 
