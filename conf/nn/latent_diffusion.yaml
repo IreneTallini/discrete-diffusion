@@ -1,0 +1,98 @@
+defaults:
+  - graph_generator: random_tree
+  - _self_
+
+data:
+  _target_: discrete_diffusion.data.datamodule.SyntheticGraphDataModule
+
+  graph_generator: ${nn.graph_generator}
+
+  datasets:
+    train:
+      _target_: discrete_diffusion.data.graph_dataset.GraphDataset
+
+    val:
+      _target_: discrete_diffusion.data.graph_dataset.GraphDataset
+
+    test:
+      _target_: discrete_diffusion.data.graph_dataset.GraphDataset
+
+  gpus: ${train.trainer.gpus}
+  overfit: False
+
+  num_workers:
+    train: 8
+    val: 4
+    test: 4
+
+  batch_size:
+    train: 32
+    val: 1
+    test: 1
+
+  val_percentage: 0.1
+
+
+module:
+  _target_: discrete_diffusion.pl_modules.latent_diffusion_pl_module.LatentDiffusionPLModule
+  batch_size: ${nn.data.batch_size}
+  num_nodes_samples: -1 #-1 random, n > 0 fix
+
+  vgae:
+    _target_: discrete_diffusion.modules.vgae.VGAE.GAE
+    feature_dim: ???
+    hidden_dim: 32
+    latent_dim: 16
+
+  diffusion:
+    _target_: discrete_diffusion.modules.diffusion.diffusion.Diffusion
+    likelihood_weighting: False
+    continuous: True
+    reduce_mean: True
+    feature_len: ???
+    n_samples: 10
+
+    sde:
+      _target_: discrete_diffusion.modules.diffusion.sde_lib.VPSDE
+      beta_min: 0.1
+      beta_max: 20
+      N: 1000
+
+    score_net:
+      _target_: discrete_diffusion.modules.diffusion.point_ddpm.PointDDPM
+      feature_dim: ${nn.module.vgae.latent_dim}
+      hidden_dim: 128
+      dropout: 0.1
+      nonlinearity:
+        _target_: torch.nn.SiLU
+      ch_mult: [1, 2, 2, 2]
+      num_res_blocks: 2
+      attn_resolutions: [16,]
+      conditional: True
+
+    sampler:
+      _target_: discrete_diffusion.modules.diffusion.sampler.PCSampler
+      score_fn: ???
+      sde: ???
+      shape: ???
+      predictor:
+        _target_: discrete_diffusion.modules.diffusion.sampler.EulerMaruyamaPredictor
+        probability_flow: False
+      corrector:
+        _target_: discrete_diffusion.modules.diffusion.sampler.NoneCorrector
+        snr: 0.16
+        n_steps: 1
+      noise_removal: True
+      eps: 1e-3
+
+  optimizer:
+    _target_: torch.optim.Adam
+    lr: 1e-4
+
+#  lr_scheduler:
+#    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+#    T_0: 10
+#    T_mult: 2
+#    eta_min: 0 # min value for the lr
+#    last_epoch: -1
+#    verbose: False

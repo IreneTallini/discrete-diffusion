@@ -75,6 +75,21 @@ def unflatten_batch(flat_batch: torch.Tensor, graph_sizes: torch.Tensor, batch_s
     return unflattened_adj
 
 
+def generate_sampled_latents_figures(sampled_latents):
+    num_samples = len(sampled_latents)
+    side = ceil(sqrt(num_samples))
+    fig, axs = plt.subplots(side, side, constrained_layout=True)
+
+    if side > 1:
+        axs = axs.flatten()
+    else:
+        axs = [axs]
+    for i in range(0, num_samples):
+        latent = sampled_latents[i, :, :, 0]
+        im = axs[i].imshow(latent.cpu().detach(), cmap='coolwarm')
+        plt.colorbar(im, ax=axs[i], orientation='vertical')
+    return fig
+
 def generate_sampled_graphs_figures(sampled_graphs: List[Data]) -> (plt.Figure, plt.Figure):
     num_samples = len(sampled_graphs)
     side = ceil(sqrt(num_samples))
