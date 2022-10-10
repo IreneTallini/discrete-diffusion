@@ -18,19 +18,12 @@ pylogger = logging.getLogger(__name__)
 
 
 def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="pyg",
-                    max_graphs_per_dataset=None, max_num_nodes=-1, iso_test=False):
+                    max_graphs_per_dataset=None, max_num_nodes=-1, min_num_nodes= -1, iso_test=False):
     if max_graphs_per_dataset is None:
         max_graphs_per_dataset = [-1] * len(paths)
     big_graphs_list = []
     features_list = []
     G = nx.Graph()
-    # load d
-    # min_labels = 1000
-    # for path, dataset_name in zip(paths, dataset_names):
-    #     data_graph_labels = np.loadtxt(path / (dataset_name + "_graph_labels.txt"), delimiter=",").astype(int)
-    #     min_labels_tmp = min(data_graph_labels)
-    #     if min_labels_tmp < min_labels:
-    #         min_labels = min_labels_tmp
 
     for path, dataset_name, dataset_id in zip(paths, dataset_names, range(len(paths))):
         pylogger.info(f"reading dataset from {path}")
@@ -41,8 +34,6 @@ def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="py
         data_graph_labels = np.loadtxt(
             str(path / (dataset_name + "_graph_labels.txt")), delimiter=",").astype(int)  # - min_labels + 1
 
-        graphs_list = []
-
         if max_graphs_per_dataset[dataset_id] == -1 or max_graphs_per_dataset[dataset_id] > len(data_graph_labels):
             graph_num = len(data_graph_labels)
         else:
@@ -50,6 +41,8 @@ def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="py
 
         if max_num_nodes == -1:
             max_num_nodes = max([sum(data_graph_indicator == i) for i in range(1, len(data_graph_labels) + 1)])
+        if min_num_nodes == -1:
+            min_num_nodes = min([sum(data_graph_indicator == i) for i in range(1, len(data_graph_labels) + 1)])
         data_tuple = list(map(tuple, data_adj))
 
         # add edges
@@ -69,7 +62,7 @@ def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="py
             # find the nodes for each graph
             nodes = node_list[data_graph_indicator == rand_id]
             G_sub = nx.Graph(G.subgraph(nodes))
-            if G_sub.number_of_nodes() <= max_num_nodes:
+            if (G_sub.number_of_nodes() <= max_num_nodes) and (G_sub.number_of_nodes() >= min_num_nodes):
                 relabeling = {node: n for node, n in zip(sorted(G_sub.nodes), range(1, len(G_sub.nodes) + 1))}
                 G_sub = nx.relabel_nodes(G_sub, relabeling)
                 G_sub.graph["label"] = data_graph_labels[rand_id - 1]

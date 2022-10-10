@@ -3,11 +3,9 @@ from typing import List
 
 import matplotlib.pyplot as plt
 import networkx as nx
-import scipy.spatial as sp
 import torch
 import torch.nn.functional as F
 import torch_geometric
-from torch.nn import CosineSimilarity
 from torch_geometric.data import Batch, Data
 from torch_geometric.utils import to_networkx
 
@@ -25,6 +23,7 @@ def compute_self_similarities(x: torch.Tensor) -> torch.Tensor:
 
 
 def edge_index_to_adj(edge_index: torch.Tensor, num_nodes: int):
+    # Assume edge index starts from 0!
     adj = torch.zeros((num_nodes, num_nodes)).type_as(edge_index)
     adj[edge_index[0, :], edge_index[1, :]] = 1
     return adj

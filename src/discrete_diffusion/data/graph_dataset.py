@@ -1,13 +1,8 @@
-from pathlib import Path
-from typing import List
-
 import hydra
 import omegaconf
 from torch.utils.data import Dataset
 
 from nn_core.common import PROJECT_ROOT
-
-from discrete_diffusion.io_utils import load_TU_dataset
 
 
 class GraphDataset(Dataset):

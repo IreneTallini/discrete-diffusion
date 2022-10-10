@@ -1,0 +1,6 @@
+_target_: discrete_diffusion.modules.gnn.node_embedder.GINWrapper
+num_layers: 2
+input_dim: ??
+output_dim: ??
+hidden_dim: ${nn.module.model.hidden_dim_shared}
+use_batch_norm: true
