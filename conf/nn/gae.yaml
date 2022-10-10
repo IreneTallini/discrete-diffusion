@@ -1,6 +1,6 @@
 defaults:
   - data: synthetic
-  - gnn_embedder: GINConv
+  - gnn_embedder: GATConv
   - _self_
 
 module:

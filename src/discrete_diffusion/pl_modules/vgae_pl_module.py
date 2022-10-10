@@ -18,7 +18,7 @@ class VGAEPLModule(TemplatePLModule):
     def step(self, batch) -> Mapping[str, Any]:
         z = self(batch)
         A_pred = dot_product_decode(z)
-        adj = edge_index_to_adj(batch.edge_index-1, num_nodes=10)
+        adj = edge_index_to_adj(batch.edge_index, num_nodes=10)
         adj_target = adj + torch.eye(adj.shape[0])
         norm = adj.shape[0] * adj.shape[0] / float((adj.shape[0] * adj.shape[0] - adj.sum()) * 2)
         loss = norm * F.binary_cross_entropy(A_pred.view(-1), adj_target.view(-1))
@@ -43,6 +43,7 @@ class VGAEPLModule(TemplatePLModule):
             nx.draw(torch_geometric.utils.to_networkx(batch), with_labels=True, ax=axs[1, 1], node_size=0.1)
             if type(self.logger) != DummyLogger:
                 self.logger.log_image(key="Reconstruction/val", images=[fig])
+            plt.close("all")
 
         self.log_dict(
             {"loss/val": step_out["loss"].cpu().detach()},
