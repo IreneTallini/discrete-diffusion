@@ -9,7 +9,13 @@ import torch_geometric.utils
 from pytorch_lightning.loggers.base import DummyLogger
 
 from discrete_diffusion.pl_modules.template_pl_module import TemplatePLModule
-from discrete_diffusion.utils import adj_to_edge_index, edge_index_to_adj, get_data_from_edge_index
+from discrete_diffusion.utils import (
+    adj_to_edge_index,
+    edge_index_to_adj,
+    get_data_from_edge_index,
+    get_graph_sizes_from_batch,
+    unflatten_batch,
+)
 
 pylogger = logging.getLogger(__name__)
 
@@ -17,12 +23,19 @@ pylogger = logging.getLogger(__name__)
 class VGAEPLModule(TemplatePLModule):
     def step(self, batch) -> Mapping[str, Any]:
         z = self(batch)
-        A_pred = dot_product_decode(z)
-        adj = edge_index_to_adj(batch.edge_index, num_nodes=10)
+        graph_sizes = get_graph_sizes_from_batch(batch)
+        mask = torch.block_diag(*[torch.triu(torch.ones(i, i), diagonal=1) for i in graph_sizes]).bool()
+        adj_pred_flat = dot_product_decode_batched(z, mask)
+
+        adj = edge_index_to_adj(batch.edge_index, num_nodes=batch.num_nodes)
         adj_target = adj + torch.eye(adj.shape[0])
+        adj_target_flat = adj_target[mask]
+
+        # TODO: check next line
         norm = adj.shape[0] * adj.shape[0] / float((adj.shape[0] * adj.shape[0] - adj.sum()) * 2)
-        loss = norm * F.binary_cross_entropy(A_pred.view(-1), adj_target.view(-1))
-        return {"loss": loss, "z": z, "A_pred": A_pred}
+        loss = norm * F.binary_cross_entropy(adj_pred_flat.view(-1), adj_target_flat.view(-1))
+        adj_pred_list = unflatten_batch(adj_pred_flat, graph_sizes, len(graph_sizes))
+        return {"loss": loss, "z": z, "adj_pred_list": adj_pred_list}
 
     def validation_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
         step_out = self.step(batch)
@@ -74,3 +87,9 @@ class VGAEPLModule(TemplatePLModule):
 def dot_product_decode(Z):
     A_pred = torch.sigmoid(torch.matmul(Z, Z.t()))
     return A_pred
+
+
+def dot_product_decode_batched(z, mask):
+    similarities = torch.sigmoid(z @ z.T)
+    flattened_adj_soft = similarities[mask]
+    return flattened_adj_soft

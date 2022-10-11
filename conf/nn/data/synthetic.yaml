@@ -1,0 +1,29 @@
+defaults:
+  - graph_generator: random_tree
+
+_target_: discrete_diffusion.data.synthetic_datamodule.SyntheticGraphDataModule
+
+datasets:
+  train:
+    _target_: discrete_diffusion.data.graph_dataset.GraphDataset
+
+  val:
+    _target_: discrete_diffusion.data.graph_dataset.GraphDataset
+
+  test:
+    _target_: discrete_diffusion.data.graph_dataset.GraphDataset
+
+gpus: ${train.trainer.gpus}
+overfit: False
+
+num_workers:
+  train: 8
+  val: 4
+  test: 4
+
+batch_size:
+  train: 8
+  val: 1
+  test: 1
+
+val_percentage: 0.1
