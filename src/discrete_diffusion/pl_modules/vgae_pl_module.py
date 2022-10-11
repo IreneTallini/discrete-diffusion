@@ -19,7 +19,7 @@ class VGAEPLModule(TemplatePLModule):
         z = self(batch)
         A_pred = dot_product_decode(z)
         adj = edge_index_to_adj(batch.edge_index, num_nodes=10)
-        adj_target = adj + torch.eye(adj.shape[0])
+        adj_target = adj + torch.eye(adj.shape[0]).to(adj.device)
         norm = adj.shape[0] * adj.shape[0] / float((adj.shape[0] * adj.shape[0] - adj.sum()) * 2)
         loss = norm * F.binary_cross_entropy(A_pred.view(-1), adj_target.view(-1))
         return {"loss": loss, "z": z, "A_pred": A_pred}
@@ -36,7 +36,7 @@ class VGAEPLModule(TemplatePLModule):
             axs[0, 1].imshow(gt_adjs.T.cpu())
             axs[0, 1].set_title("ground truth")
 
-            disc_adj = (A_pred > 0.5).long() - torch.eye(A_pred.shape[0])
+            disc_adj = (A_pred > 0.5).long() - torch.eye(A_pred.shape[0]).to(A_pred.device)
             edge_index = adj_to_edge_index(disc_adj)
             data = get_data_from_edge_index(edge_index, batch.x)
             nx.draw(torch_geometric.utils.to_networkx(data), with_labels=True, ax=axs[1, 0], node_size=0.1)

@@ -22,7 +22,7 @@ num_workers:
   test: 4
 
 batch_size:
-  train: 8
+  train: 1
   val: 1
   test: 1
 

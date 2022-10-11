@@ -1,48 +1,25 @@
 defaults:
-  - graph_generator: random_tree
+  - data: synthetic
+  - gnn_embedder: GATConv
   - _self_
-
-data:
-  _target_: discrete_diffusion.data.datamodule.SyntheticGraphDataModule
-
-  graph_generator: ${nn.graph_generator}
-
-  datasets:
-    train:
-      _target_: discrete_diffusion.data.graph_dataset.GraphDataset
-
-    val:
-      _target_: discrete_diffusion.data.graph_dataset.GraphDataset
-
-    test:
-      _target_: discrete_diffusion.data.graph_dataset.GraphDataset
-
-  gpus: ${train.trainer.gpus}
-  overfit: False
-
-  num_workers:
-    train: 8
-    val: 4
-    test: 4
-
-  batch_size:
-    train: 32
-    val: 1
-    test: 1
-
-  val_percentage: 0.1
-
 
 module:
   _target_: discrete_diffusion.pl_modules.latent_diffusion_pl_module.LatentDiffusionPLModule
-  batch_size: ${nn.data.batch_size}
-  num_nodes_samples: -1 #-1 random, n > 0 fix
+
+  vgae_checkpoint_path: null
 
   vgae:
-    _target_: discrete_diffusion.modules.vgae.VGAE.GAE
+    _target_: discrete_diffusion.modules.gnn.node_embedder.NodeEmbedder
     feature_dim: ???
-    hidden_dim: 32
-    latent_dim: 16
+    num_layers_pre_post_mlp: 2
+    hidden_dim_shared: 128
+    embedding_dim: 128
+    use_batch_norm_pre_post_mlp: true
+    num_convs: 2
+    dropout_rate: 0.1
+    do_preprocess: true
+    jump_mode: cat
+    gnn: ${nn.gnn_embedder}
 
   diffusion:
     _target_: discrete_diffusion.modules.diffusion.diffusion.Diffusion
@@ -60,7 +37,7 @@ module:
 
     score_net:
       _target_: discrete_diffusion.modules.diffusion.point_ddpm.PointDDPM
-      feature_dim: ${nn.module.vgae.latent_dim}
+      feature_dim: ${nn.module.vgae.embedding_dim}
       hidden_dim: 128
       dropout: 0.1
       nonlinearity:

@@ -22,6 +22,7 @@ from discrete_diffusion.data.datamodule import MetaData
 from discrete_diffusion.utils import clear_figures, edge_index_to_adj, generate_sampled_graphs_figures
 
 os.environ['HYDRA_FULL_ERROR'] = '1'
+os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 pylogger = logging.getLogger(__name__)
 
