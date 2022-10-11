@@ -84,7 +84,7 @@ def generate_sampled_latents_figures(sampled_latents):
     else:
         axs = [axs]
     for i in range(0, num_samples):
-        latent = sampled_latents[i, :, :, 0]
+        latent = sampled_latents[i, :, :]
         im = axs[i].imshow(latent.cpu().detach(), cmap='coolwarm')
         plt.colorbar(im, ax=axs[i], orientation='vertical')
     return fig

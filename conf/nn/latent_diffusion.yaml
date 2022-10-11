@@ -5,10 +5,9 @@ defaults:
 
 module:
   _target_: discrete_diffusion.pl_modules.latent_diffusion_pl_module.LatentDiffusionPLModule
+  node_embedder_checkpoint_path: /home/emilian/DataspellProjects/discrete_diffusion/storage/discrete_diffusion/v0d8puqg/checkpoints/checkpoint.ckpt
 
-  vgae_checkpoint_path: null
-
-  vgae:
+  node_embedder:
     _target_: discrete_diffusion.modules.gnn.node_embedder.NodeEmbedder
     feature_dim: ???
     num_layers_pre_post_mlp: 2
@@ -27,7 +26,7 @@ module:
     continuous: True
     reduce_mean: True
     feature_len: ???
-    n_samples: 10
+    n_samples: 1
 
     sde:
       _target_: discrete_diffusion.modules.diffusion.sde_lib.VPSDE
@@ -37,7 +36,7 @@ module:
 
     score_net:
       _target_: discrete_diffusion.modules.diffusion.point_ddpm.PointDDPM
-      feature_dim: ${nn.module.vgae.embedding_dim}
+      feature_dim: ${nn.module.node_embedder.embedding_dim}
       hidden_dim: 128
       dropout: 0.1
       nonlinearity:

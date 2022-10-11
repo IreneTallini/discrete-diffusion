@@ -1,17 +1,27 @@
 import logging
+from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence, Tuple, Union
 
 import hydra
 import matplotlib.pyplot as plt
+import networkx as nx
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.loggers.base import DummyLogger
 from torch.optim import Optimizer
 
 from nn_core.model_logging import NNLogger
+from nn_core.serialization import load_model
 
 from discrete_diffusion.data.datamodule import MetaData
-from discrete_diffusion.utils import clear_figures, generate_sampled_latents_figures
+from discrete_diffusion.pl_modules.vgae_pl_module import dot_product_decode
+from discrete_diffusion.utils import (
+    adj_to_edge_index,
+    clear_figures,
+    generate_sampled_graphs_figures,
+    generate_sampled_latents_figures,
+    get_data_from_edge_index,
+)
 
 pylogger = logging.getLogger(__name__)
 
@@ -26,17 +36,22 @@ class LatentDiffusionPLModule(pl.LightningModule):
         # Be careful when modifying this instruction. If in doubt, don't do it :]
         self.save_hyperparameters(logger=False, ignore=("metadata",))
         self.metadata = metadata
-        self.vgae = hydra.utils.instantiate(self.hparams.vgae, feature_dim=metadata.feature_dim, _recursive_=False)
+        self.node_embedder = hydra.utils.instantiate(self.hparams.node_embedder, feature_dim=metadata.feature_dim,
+                                                     _recursive_=False)
+        # self.vgae.load
+        node_embedder_state_dict = torch.load(self.hparams.node_embedder_checkpoint_path)
+        self.node_embedder.load_state_dict({k.replace('model.', ''):v for k, v in node_embedder_state_dict['state_dict'].items()})
         self.diffusion = hydra.utils.instantiate(self.hparams.diffusion, feature_len=len(metadata.features_list[0]),
                                                  _recursive_=False)
         # self.num_nodes_samples = self.set_nodes_number_sampling()
 
     def step(self, x) -> Mapping[str, Any]:
-        # TODO: change this test input to the real encoded data
-        # z = self.vgae(x)
-        # z = z.permute(0,2,1)
+        with torch.no_grad():
+            z = self.node_embedder(x)
         # z = z.unsqueeze(-1)
-        z = torch.ones((4, 16, 50, 1)).to(self.device)
+        z = z.unsqueeze(0)
+        z = z.permute(0, 2, 1)
+        z = z.unsqueeze(-1)
         loss = self.diffusion(z)
         return {"loss": loss}
 
@@ -83,11 +98,22 @@ class LatentDiffusionPLModule(pl.LightningModule):
     #     return num_nodes_samples
 
     def on_validation_epoch_end(self) -> None:
-        samples = self.diffusion.sample(device=self.device)
-        fig = generate_sampled_latents_figures(samples)
+        sampled_latents = self.diffusion.sample(device=self.device)
+        sampled_latents = sampled_latents.squeeze(-1)
+        sampled_latents = sampled_latents.permute(0, 2, 1)
+        sampled_latents = sampled_latents.squeeze(0)
+
+        sampled_adj = (torch.nn.functional.sigmoid(sampled_latents @ sampled_latents.T) > 0.5).long()
+        sampled_edge_idx = adj_to_edge_index(sampled_adj)
+        sampled_data = get_data_from_edge_index(sampled_edge_idx, node_features=torch.empty((sampled_adj.shape[0], 1)))
+        fig_graph, fig_adj = generate_sampled_graphs_figures([sampled_data])
+
+        fig_latent = generate_sampled_latents_figures(sampled_latents.unsqueeze(0))
         if type(self.logger) != DummyLogger:
-            self.logger.log_image(key="Sampled graphs/val", images=[fig])
-        clear_figures([fig])
+            self.logger.log_image(key="Sampled latent/val", images=[fig_latent])
+            self.logger.log_image(key="Sampled adj/val", images=[fig_adj])
+            self.logger.log_image(key="Sampled graph/val", images=[fig_graph])
+        clear_figures([fig_latent, fig_adj, fig_graph])
 
     # def on_test_epoch_end(self) -> None:
     #     sampled_graphs, _ = self.sample_from_model([self.num_nodes_samples] * self.hparams.batch_size.test)
