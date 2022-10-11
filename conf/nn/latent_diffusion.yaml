@@ -5,7 +5,7 @@ defaults:
 
 module:
   _target_: discrete_diffusion.pl_modules.latent_diffusion_pl_module.LatentDiffusionPLModule
-  node_embedder_checkpoint_path: /home/emilian/DataspellProjects/discrete_diffusion/storage/discrete_diffusion/v0d8puqg/checkpoints/checkpoint.ckpt
+  node_embedder_checkpoint_path: ${oc.env:PROJECT_ROOT}/storage/discrete_diffusion/v0d8puqg/checkpoints/checkpoint.ckpt
 
   node_embedder:
     _target_: discrete_diffusion.modules.gnn.node_embedder.NodeEmbedder
