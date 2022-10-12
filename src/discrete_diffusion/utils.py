@@ -1,11 +1,12 @@
 from math import ceil, sqrt
-from typing import List
+from typing import List, Union
 
 import matplotlib.pyplot as plt
 import networkx as nx
 import torch
 import torch.nn.functional as F
 import torch_geometric
+from plotly.subplots import make_subplots
 from torch_geometric.data import Batch, Data
 from torch_geometric.utils import to_networkx
 
@@ -89,7 +90,8 @@ def generate_sampled_latents_figures(sampled_latents):
         plt.colorbar(im, ax=axs[i], orientation='vertical')
     return fig
 
-def generate_sampled_graphs_figures(sampled_graphs: List[Data]) -> (plt.Figure, plt.Figure):
+
+def generate_sampled_graphs_figures(sampled_graphs: List[Union[Data, torch.Tensor, nx.Graph]]) -> (plt.Figure, plt.Figure):
     num_samples = len(sampled_graphs)
     side = ceil(sqrt(num_samples))
 
@@ -104,10 +106,20 @@ def generate_sampled_graphs_figures(sampled_graphs: List[Data]) -> (plt.Figure, 
 
     for i in range(0, num_samples):
         data = sampled_graphs[i]
-        axs_adj[i].imshow(edge_index_to_adj(data.edge_index, data.num_nodes).cpu().detach())
         if type(data) == Data:
-            data = to_networkx(data)
-        nx.draw(data, with_labels=True, ax=axs[i], node_size=0.1)
+            adj = edge_index_to_adj(data.edge_index, data.num_nodes).cpu().detach()
+            graph = to_networkx(data)
+        elif type(data) == torch.Tensor:
+            adj = data
+            graph = nx.from_numpy_matrix((adj > 0.5).int().numpy())
+        elif type(data) == nx.Graph:
+            adj = nx.adj_matrix(data)
+            graph = data
+        else:
+            raise TypeError("Only nx.Graph, torch.Tensors and pyg.Data are allowed")
+
+        axs_adj[i].imshow(adj.cpu().detach())
+        nx.draw(graph, with_labels=True, ax=axs[i], node_size=0.1)
 
     return fig, fig_adj
 

@@ -4,8 +4,8 @@ train_dir: ${oc.env:PROJECT_ROOT}/data/standard_train
 val_dir: ${oc.env:PROJECT_ROOT}/data/standard_val
 test_dir: ${oc.env:PROJECT_ROOT}/data/standard_test
 max_graphs_per_dataset: -1
-max_num_nodes: 10
-min_num_nodes: 10
+max_num_nodes: 20
+min_num_nodes: 1
 
 datasets:
   train:
@@ -26,8 +26,8 @@ num_workers:
   test: 4
 
 batch_size:
-  train: 1
-  val: 1
+  train: 16
+  val: 16
   test: 1
 
 val_percentage: 0.1

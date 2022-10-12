@@ -49,7 +49,7 @@ class GraphDataModule(MyDataModule):
                 dataset_names=[self.dataset_name],
                 max_graphs_per_dataset=[self.max_graphs_per_dataset],
                 max_num_nodes=self.max_num_nodes,
-                min_num_nodes=self.min_num_nodes
+                min_num_nodes=self.min_num_nodes,
             )
 
             ref_graph = data_list[0]

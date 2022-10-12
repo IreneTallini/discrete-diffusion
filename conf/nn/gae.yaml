@@ -1,6 +1,6 @@
 defaults:
-  - data: synthetic
-  - gnn_embedder: GATConv
+  - data: TUDatasets
+  - gnn_embedder: GINConv
   - _self_
 
 module:
@@ -9,11 +9,11 @@ module:
   model:
     _target_: discrete_diffusion.modules.gnn.node_embedder.NodeEmbedder
     feature_dim: ???
-    num_layers_pre_post_mlp: 2
-    hidden_dim_shared: 128
-    embedding_dim: 128
+    num_layers_pre_post_mlp: 3
+    hidden_dim_shared: 256
+    embedding_dim: 256
     use_batch_norm_pre_post_mlp: true
-    num_convs: 2
+    num_convs: 3
     dropout_rate: 0.1
     do_preprocess: true
     jump_mode: cat

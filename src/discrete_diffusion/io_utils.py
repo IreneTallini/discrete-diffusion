@@ -8,6 +8,7 @@ import networkx as nx
 import numpy as np
 import pandas
 import torch
+import torch.nn.functional as F
 import torch_geometric.data
 from torch import Tensor
 from torch_geometric.data import Batch, Data
@@ -18,7 +19,8 @@ pylogger = logging.getLogger(__name__)
 
 
 def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="pyg",
-                    max_graphs_per_dataset=None, max_num_nodes=-1, min_num_nodes= -1, iso_test=False):
+                    max_graphs_per_dataset=None, max_num_nodes=-1, min_num_nodes=-1,
+                    pad_to_max_num=False, iso_test=False):
     if max_graphs_per_dataset is None:
         max_graphs_per_dataset = [-1] * len(paths)
     big_graphs_list = []
@@ -32,7 +34,7 @@ def load_TU_dataset(paths: List[Path], dataset_names: List[str], output_type="py
         data_graph_indicator = np.loadtxt(
             str(path / (dataset_name + "_graph_indicator.txt")), delimiter=",").astype(int)
         data_graph_labels = np.loadtxt(
-            str(path / (dataset_name + "_graph_labels.txt")), delimiter=",").astype(int)  # - min_labels + 1
+            str(path / (dataset_name + "_graph_labels.txt")), delimiter=",").astype(int)
 
         if max_graphs_per_dataset[dataset_id] == -1 or max_graphs_per_dataset[dataset_id] > len(data_graph_labels):
             graph_num = len(data_graph_labels)

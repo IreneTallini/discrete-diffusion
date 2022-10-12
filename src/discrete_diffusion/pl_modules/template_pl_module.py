@@ -15,7 +15,6 @@ pylogger = logging.getLogger(__name__)
 
 
 class TemplatePLModule(pl.LightningModule):
-    logger: NNLogger
 
     def __init__(self, model: DictConfig, metadata: Optional[MetaData] = None, *args, **kwargs) -> None:
         super().__init__()

@@ -2,17 +2,14 @@ import logging
 from typing import Any, Mapping
 
 import matplotlib.pyplot as plt
-import networkx as nx
 import torch
 import torch.nn.functional as F
-import torch_geometric.utils
 from pytorch_lightning.loggers.base import DummyLogger
 
 from discrete_diffusion.pl_modules.template_pl_module import TemplatePLModule
 from discrete_diffusion.utils import (
-    adj_to_edge_index,
     edge_index_to_adj,
-    get_data_from_edge_index,
+    generate_sampled_graphs_figures,
     get_graph_sizes_from_batch,
     unflatten_batch,
 )
@@ -35,27 +32,23 @@ class VGAEPLModule(TemplatePLModule):
         norm = adj.shape[0] * adj.shape[0] / float((adj.shape[0] * adj.shape[0] - adj.sum()) * 2)
         loss = norm * F.binary_cross_entropy(adj_pred_flat.view(-1), adj_target_flat.view(-1))
         adj_pred_list = unflatten_batch(adj_pred_flat, graph_sizes, len(graph_sizes))
-        return {"loss": loss, "z": z, "adj_pred_list": adj_pred_list}
+        z_list = [z[batch.batch == i] for i in range(0, len(batch.ptr) - 1)]
+        return {"loss": loss, "z_list": z_list, "adj_pred_list": adj_pred_list}
 
     def validation_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
         step_out = self.step(batch)
-        A_pred = step_out['A_pred']
-        if batch_idx < 5:
-            fig, axs = plt.subplots(2, 2, constrained_layout=True)
-            gt_adjs = edge_index_to_adj(batch.edge_index, len(batch.batch))
-            im = axs[0, 0].imshow(A_pred.T.cpu(), cmap='coolwarm')
-            axs[0, 0].set_title("reconstruction")
-            plt.colorbar(im, ax=axs[0, 0], orientation='vertical')
-            axs[0, 1].imshow(gt_adjs.T.cpu())
-            axs[0, 1].set_title("ground truth")
-
-            disc_adj = (A_pred > 0.5).long() - torch.eye(A_pred.shape[0])
-            edge_index = adj_to_edge_index(disc_adj)
-            data = get_data_from_edge_index(edge_index, batch.x)
-            nx.draw(torch_geometric.utils.to_networkx(data), with_labels=True, ax=axs[1, 0], node_size=0.1)
-            nx.draw(torch_geometric.utils.to_networkx(batch), with_labels=True, ax=axs[1, 1], node_size=0.1)
+        adj_pred_list = step_out['adj_pred_list']
+        z_list = step_out['z_list']
+        data_list_gt = batch.to_data_list()
+        if batch_idx < 1:
+            fig_graph, fig_adj = generate_sampled_graphs_figures(adj_pred_list)
+            fig_graph_gt, fig_adj_gt = generate_sampled_graphs_figures(data_list_gt)
+            fig_z, ax_z = plt.subplots(1, 1, constrained_layout=True)
+            ax_z.imshow(z_list[0].cpu().detach(), cmap="coolwarm")
             if type(self.logger) != DummyLogger:
-                self.logger.log_image(key="Reconstruction/val", images=[fig])
+                self.logger.log_image(key="Reconstruction/val", images=[fig_adj, fig_graph])
+                self.logger.log_image(key="Ground Truth/val", images=[fig_adj_gt, fig_graph_gt])
+                self.logger.log_image(key="Latent/val", images=[fig_z])
             plt.close("all")
 
         self.log_dict(
