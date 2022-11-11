@@ -1,0 +1,74 @@
+defaults:
+  - data: synthetic
+  - gnn_embedder: GATConv
+  - _self_
+
+module:
+  _target_: discrete_diffusion.pl_modules.latent_diffusion_pl_module.LatentDiffusionPLModule
+  node_embedder_checkpoint_path: ${oc.env:PROJECT_ROOT}/storage/discrete_diffusion/v0d8puqg/checkpoints/checkpoint.ckpt
+
+  node_embedder:
+    _target_: discrete_diffusion.modules.gnn.node_embedder.NodeEmbedder
+    feature_dim: ???
+    num_layers_pre_post_mlp: 2
+    hidden_dim_shared: 128
+    embedding_dim: 128
+    use_batch_norm_pre_post_mlp: true
+    num_convs: 2
+    dropout_rate: 0.1
+    do_preprocess: true
+    jump_mode: cat
+    gnn: ${nn.gnn_embedder}
+
+  diffusion:
+    _target_: discrete_diffusion.modules.diffusion.diffusion.Diffusion
+    likelihood_weighting: False
+    continuous: True
+    reduce_mean: True
+    feature_len: ???
+    n_samples: 1
+
+    sde:
+      _target_: discrete_diffusion.modules.diffusion.sde_lib.VPSDE
+      beta_min: 0.1
+      beta_max: 20
+      N: 1000
+
+    score_net:
+      _target_: discrete_diffusion.modules.diffusion.pointnet.PointwiseNet
+      feature_dim: ${nn.module.node_embedder.embedding_dim}
+      hidden_dim: 128
+      dropout: 0.1
+      nonlinearity:
+        _target_: torch.nn.SiLU
+      ch_mult: [1, 2, 2, 2]
+      num_res_blocks: 2
+      attn_resolutions: [16,]
+      conditional: True
+
+    sampler:
+      _target_: discrete_diffusion.modules.diffusion.sampler.PCSampler
+      score_fn: ???
+      sde: ???
+      shape: ???
+      predictor:
+        _target_: discrete_diffusion.modules.diffusion.sampler.EulerMaruyamaPredictor
+        probability_flow: False
+      corrector:
+        _target_: discrete_diffusion.modules.diffusion.sampler.NoneCorrector
+        snr: 0.16
+        n_steps: 1
+      noise_removal: True
+      eps: 1e-3
+
+  optimizer:
+    _target_: torch.optim.Adam
+    lr: 1e-4
+
+#  lr_scheduler:
+#    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+#    T_0: 10
+#    T_mult: 2
+#    eta_min: 0 # min value for the lr
+#    last_epoch: -1
+#    verbose: False

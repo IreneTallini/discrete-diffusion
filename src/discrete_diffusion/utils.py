@@ -6,7 +6,6 @@ import networkx as nx
 import torch
 import torch.nn.functional as F
 import torch_geometric
-from plotly.subplots import make_subplots
 from torch_geometric.data import Batch, Data
 from torch_geometric.utils import to_networkx
 
@@ -23,8 +22,8 @@ def compute_self_similarities(x: torch.Tensor) -> torch.Tensor:
     return cosine_similarities
 
 
-def edge_index_to_adj(edge_index: torch.Tensor, num_nodes: int):
-    # Assume edge index starts from 0!
+def edge_index_to_adj(edge_index: torch.Tensor, num_nodes: int) -> torch.Tensor:
+    # Assume edge index starts from 0
     adj = torch.zeros((num_nodes, num_nodes)).type_as(edge_index)
     adj[edge_index[0, :], edge_index[1, :]] = 1
     return adj
@@ -134,3 +133,20 @@ def pyg_to_networkx_with_features(pyg_graph: Data):
     nx_graph = torch_geometric.utils.to_networkx(pyg_graph)
     attr = {i + 1: {"x": pyg_graph.x[i]} for i in range(pyg_graph.num_nodes)}
     nx.set_node_attributes(nx_graph, attr)
+
+
+def batched_adj_and_features_from_data_batch(batch, max_num_nodes):
+    adj_list = []
+    x_list = []
+    for data in batch.to_data_list():
+        adj = edge_index_to_adj(data.edge_index, data.num_nodes)
+        pad_dim = max_num_nodes - data.num_nodes
+        adj = F.pad(adj, (0, pad_dim, 0, pad_dim), "constant", 0)
+        adj_list.append(adj)
+
+        x = data.x
+        x = F.pad(x, (0, 0, 0, pad_dim), "constant", 0)
+        x_list.append(x)
+    adj_batch = torch.stack(adj_list)
+    x_batch = torch.stack(x_list)
+    return adj_batch, x_batch
