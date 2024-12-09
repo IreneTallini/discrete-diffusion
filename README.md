@@ -8,7 +8,7 @@
     <a href="https://black.readthedocs.io/en/stable/"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
 </p>
 
-torch inplementation of discrete diffusion generative models as in https://arxiv.org/abs/2107.03006
+torch implementation of discrete diffusion generative models as in https://arxiv.org/abs/2107.03006, applied to graphs.
 
 
 ## Installation
